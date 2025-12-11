@@ -1,5 +1,7 @@
 import {useEffect, useState} from "react";
 import {Link, NavLink} from "react-router-dom";
+import LogoLetter from "../assets/Logo-Letter-1_White_100.png";
+
 
 export function Header() {
     const [isOpen, setIsOpen] = useState(false);
@@ -34,13 +36,16 @@ export function Header() {
             <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
                 {/* Logo */}
                 <Link to="/" className="flex items-center gap-2" onClick={closeMenu}>
-					<span
-                        className="flex h-8 w-8 items-center justify-center rounded-md bg-slate-900 font-bold text-white dark:bg-slate-100 dark:text-slate-900">
-						E
-					</span>
-                    <span className="text-xl font-semibold text-slate-800 dark:text-slate-100">
-						Ephany
-					</span>
+                    <span className="flex h-10 w-10 items-center justify-center rounded-md bg-slate-900 dark:bg-slate-900">
+                        <img
+                            src={LogoLetter}
+                            alt="Ephany logo"
+                            className="h-7 w-7 object-contain"
+                        />
+                    </span>
+                    <span className="text-sm font-medium text-slate-500 dark:text-slate-400 tracking-wide">
+                        Ephany
+                    </span>
                 </Link>
 
                 {/* Desktop nav + theme toggle */}
