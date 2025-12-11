@@ -1,6 +1,5 @@
 // src/components/DataTable.tsx
-// src/components/DataTable.tsx
-import type {ReactNode} from "react";
+import type { ReactNode } from "react";
 
 export type ColumnDef<T> = {
 	key: string;
@@ -12,12 +11,14 @@ type DataTableProps<T> = {
 	rows: T[];
 	columns: ColumnDef<T>[];
 	getRowKey: (row: T) => string | number;
+	onRowClick?: (row: T) => void;   // NEW
 };
 
 export function DataTable<T>({
 	rows,
 	columns,
 	getRowKey,
+	onRowClick,
 }: DataTableProps<T>) {
 	return (
 		<section className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm">
@@ -38,16 +39,17 @@ export function DataTable<T>({
 					{rows.map((row) => (
 						<tr
 							key={getRowKey(row)}
-							className="hover:bg-slate-50 dark:hover:bg-slate-800"
+							className={`hover:bg-slate-50 dark:hover:bg-slate-800 ${
+								onRowClick ? "cursor-pointer" : ""
+							}`}
+							onClick={onRowClick ? () => onRowClick(row) : undefined}
 						>
 							{columns.map((col) => (
 								<td
 									key={col.key}
 									className="whitespace-nowrap px-3 py-2 text-slate-900 dark:text-slate-100"
 								>
-									{col.render
-										? col.render(row)
-										: (row as any)[col.key]}
+									{col.render ? col.render(row) : (row as any)[col.key]}
 								</td>
 							))}
 						</tr>

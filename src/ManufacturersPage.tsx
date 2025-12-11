@@ -1,4 +1,4 @@
-import { ChangeEvent, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { DataTable, type ColumnDef } from "./components/DataTable";
 import {
 	FiltersPanel,

@@ -1,3 +1,4 @@
+// src/AssetsPage.tsx
 import { useEffect, useMemo, useState } from "react";
 import { fetchAssets, type Asset } from "./api/assets";
 import {
@@ -5,6 +6,7 @@ import {
 	type SelectFilterConfig,
 } from "./components/FiltersPanel";
 import { DataTable, type ColumnDef } from "./components/DataTable";
+import { DetailModal } from "./components/DetailModal";
 
 export function AssetsPage() {
 	const [assets, setAssets] = useState<Asset[]>([]);
@@ -14,6 +16,8 @@ export function AssetsPage() {
 	const [searchTerm, setSearchTerm] = useState("");
 	const [manufacturerFilter, setManufacturerFilter] = useState<string>("");
 	const [categoryFilter, setCategoryFilter] = useState<string>("");
+
+	const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
 
 	useEffect(() => {
 		const load = async () => {
@@ -43,7 +47,7 @@ export function AssetsPage() {
 		return names;
 	}, [assets]);
 
-	// Unique list of categories (if your API has a category field)
+	// Unique list of categories (if available)
 	const categories = useMemo(() => {
 		const names = Array.from(
 			new Set(
@@ -66,20 +70,20 @@ export function AssetsPage() {
 				return false;
 			}
 
-			// Category filter (if category exists)
+			// Category filter
 			const category = (asset as any).category;
 			if (categoryFilter && category !== categoryFilter) {
 				return false;
 			}
 
-			// Keyword search across entire asset object
+			// Search across entire asset object
 			if (!term) return true;
 			const haystack = JSON.stringify(asset).toLowerCase();
 			return haystack.includes(term);
 		});
 	}, [assets, manufacturerFilter, categoryFilter, searchTerm]);
 
-	// Handlers passed into FiltersPanel
+	// FiltersPanel handlers
 	const handleSearchChange = (value: string) => {
 		setSearchTerm(value);
 	};
@@ -92,7 +96,6 @@ export function AssetsPage() {
 		setCategoryFilter(value);
 	};
 
-	// Select filters config for FiltersPanel
 	const selectFilters: SelectFilterConfig[] = [
 		...(manufacturers.length
 			? [
@@ -118,7 +121,7 @@ export function AssetsPage() {
 			: []),
 	];
 
-	// Columns for DataTable
+	// Table columns
 	const columns: ColumnDef<Asset>[] = [
 		{ key: "type_id", header: "Type ID" },
 		{ key: "name", header: "Name" },
@@ -131,15 +134,12 @@ export function AssetsPage() {
 				let doorTypeDisplay: string;
 
 				if (!asset.custom_fields) {
-					// The asset has no custom_fields object at all
 					doorTypeDisplay = "no custom fields";
 				} else if (
 					!Object.prototype.hasOwnProperty.call(asset.custom_fields, "door_type")
 				) {
-					// The asset has custom_fields but this specific field is missing
 					doorTypeDisplay = "CUSTOM FIELD NOT FOUND";
 				} else {
-					// The field exists (may still be null or empty)
 					const value = (asset.custom_fields as any).door_type;
 					doorTypeDisplay = value ?? "–";
 				}
@@ -184,6 +184,18 @@ export function AssetsPage() {
 				rows={filteredAssets}
 				columns={columns}
 				getRowKey={(asset) => asset.id}
+				onRowClick={(asset) => setSelectedAsset(asset)}   // NEW
+			/>
+
+			<DetailModal
+				open={!!selectedAsset}
+				item={selectedAsset}
+				onClose={() => setSelectedAsset(null)}
+				title={
+					selectedAsset
+						? selectedAsset.name || selectedAsset.type_id || "Asset details"
+						: "Asset details"
+				}
 			/>
 		</div>
 	);
