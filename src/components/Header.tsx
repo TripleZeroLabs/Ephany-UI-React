@@ -33,7 +33,7 @@ export function Header() {
 
     return (
         <header className="w-full">
-            <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
+            <div className="mx-auto flex max-w-7xl items-center justify-between py-3 px-0">
                 {/* Logo */}
                 <Link to="/" className="flex items-center gap-2" onClick={closeMenu}>
                     <span className="flex h-10 w-10 items-center justify-center rounded-md bg-slate-900 dark:bg-slate-900">
