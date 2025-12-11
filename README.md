@@ -31,7 +31,7 @@ This repo is designed for clarity, extensibility, and rapid launch.
 
 ```
 git clone https://github.com/TripleZeroLabs/Ephany-UI-React.git
-cd Ephany-UI
+cd Ephany-UI-React
 ```
 
 Create your environment file:
