@@ -86,7 +86,7 @@ export function FiltersPanel({
 								focus:ring-2 focus:ring-slate-900/10 dark:focus:ring-slate-100/10
 							"
 						>
-							<option value="">{`All ${filter.label.toLowerCase()}`}</option>
+							<option value="">{`All`}</option>
 							{filter.options.map((opt) => (
 								<option key={opt} value={opt}>
 									{opt}

@@ -12,7 +12,7 @@
 .detail-subtable {
   width: 100%;
   border-collapse: collapse;
-  font-size: 11px;
+  font-size: 15px;
   border: 1px solid rgba(148, 163, 184, 0.6); /* slate-400-ish */
   border-radius: 0.375rem; /* rounded-md */
   background-color: rgb(248, 250, 252); /* slate-50 */
