@@ -30,7 +30,7 @@ export function Header() {
     };
 
     return (
-        <header className="w-full border-b border-slate-200 bg-white dark:bg-slate-800 dark:border-slate-700">
+        <header className="w-full">
             <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
                 {/* Logo */}
                 <Link to="/" className="flex items-center gap-2" onClick={closeMenu}>
