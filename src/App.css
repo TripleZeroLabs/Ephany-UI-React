@@ -1,14 +1,11 @@
 main {
-	max-width: 1120px;
 	margin: 0 auto;
-	padding: 1.5rem 1rem;
 }
 
 #root {
 	max-width: 1280px;
 	margin: 0 auto;
 	padding: 2rem;
-	text-align: center;
 }
 
 .logo {
@@ -51,4 +48,8 @@ th, td {
 	text-align: left;
 	white-space: nowrap;
 	padding: 0.4rem 0.6rem ;
+}
+
+section.filters {
+    margin: 0.5rem 0rem;
 }
