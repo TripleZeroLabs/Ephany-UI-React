@@ -33,14 +33,14 @@ export function Header() {
 
     return (
         <header className="w-full">
-            <div className="mx-auto flex max-w-7xl items-center justify-between py-3 px-0">
+            <div className="mx-auto flex max-w-7xl items-center justify-between py-1 px-0">
                 {/* Logo */}
                 <Link to="/" className="flex items-center gap-2" onClick={closeMenu}>
-                    <span className="flex h-10 w-10 items-center justify-center rounded-md bg-slate-900 dark:bg-slate-900">
+                    <span className="flex h-8 w-8 items-center justify-center rounded-md bg-slate-900 dark:bg-slate-900">
                         <img
                             src={LogoLetter}
                             alt="Ephany logo"
-                            className="h-7 w-7 object-contain"
+                            className="h-6 w-6 object-contain"
                         />
                     </span>
                     <span className="text-sm font-medium text-slate-500 dark:text-slate-400 tracking-wide">
