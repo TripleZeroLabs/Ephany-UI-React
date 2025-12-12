@@ -21,15 +21,35 @@ export type Asset = {
   };
 };
 
-const API_BASE_URL = "/api"; // note: no full domain
+// If you want same-origin in dev, you can still use "/api"
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL || "/api";
+
+const API_KEY = import.meta.env.VITE_API_KEY;
 
 export async function fetchAssets(): Promise<Asset[]> {
-  const res = await fetch(`${API_BASE_URL}/assets/`);
+  try {
+    const res = await fetch(`${API_BASE_URL}/assets/`, {
+      headers: {
+        "Content-Type": "application/json",
+        "X-API-Key": API_KEY ?? "",
+      },
+    });
 
-  if (!res.ok) {
-    throw new Error(`Failed to fetch assets: ${res.status} ${res.statusText}`);
+    console.log("fetchAssets response status:", res.status);
+
+    if (!res.ok) {
+      const text = await res.text();
+      console.error("fetchAssets error body:", text);
+      throw new Error(
+        `Failed to fetch assets: ${res.status} ${res.statusText} - ${text}`,
+      );
+    }
+
+    const data = (await res.json()) as Asset[];
+    return data;
+  } catch (err) {
+    console.error("fetchAssets network/other error:", err);
+    throw err;
   }
-
-  const data = (await res.json()) as Asset[];
-  return data;
 }
