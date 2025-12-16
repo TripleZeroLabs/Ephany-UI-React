@@ -1,13 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { DataTable, type ColumnDef } from "./components/DataTable";
-import {
-	FiltersPanel,
-	type SelectFilterConfig,
-} from "./components/FiltersPanel";
+import { FiltersPanel, type SelectFilterConfig, } from "./components/FiltersPanel";
 import { fetchManufacturers, type Manufacturer } from "./api/manufacturers";
+import { usePageTitle } from "./hooks/usePageTitle";
 
 export function ManufacturersPage() {
-	const [manufacturers, setManufacturers] = useState<Manufacturer[]>([]);
+    usePageTitle("Manufacturers");
+    const [manufacturers, setManufacturers] = useState<Manufacturer[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 

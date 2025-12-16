@@ -1,12 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { DataTable, type ColumnDef } from "./components/DataTable";
-import {
-	FiltersPanel,
-	type SelectFilterConfig,
-} from "./components/FiltersPanel";
+import { FiltersPanel, type SelectFilterConfig, } from "./components/FiltersPanel";
 import { fetchProjects, type Project } from "./api/projects";
+import { usePageTitle } from "./hooks/usePageTitle";
 
 export function ProjectsPage() {
+    usePageTitle("Project");
 	const [projects, setProjects] = useState<Project[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);

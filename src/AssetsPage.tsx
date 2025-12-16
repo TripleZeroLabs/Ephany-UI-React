@@ -1,15 +1,15 @@
 // src/AssetsPage.tsx
 import { useEffect, useMemo, useState } from "react";
 import { fetchAssets, type Asset } from "./api/assets";
-import {
-	FiltersPanel,
-	type SelectFilterConfig,
-} from "./components/FiltersPanel";
+import { FiltersPanel, type SelectFilterConfig } from "./components/FiltersPanel";
 import { DataTable, type ColumnDef } from "./components/DataTable";
 import { DetailModal } from "./components/DetailModal";
+import { usePageTitle } from "./hooks/usePageTitle";
+
 
 export function AssetsPage() {
-	const [assets, setAssets] = useState<Asset[]>([]);
+    usePageTitle("Assets");
+    const [assets, setAssets] = useState<Asset[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 
