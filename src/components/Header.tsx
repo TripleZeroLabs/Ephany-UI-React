@@ -36,7 +36,7 @@ export function Header() {
             <div className="mx-auto flex max-w-7xl items-center justify-between py-1 px-0">
                 {/* Logo */}
                 <Link to="/" className="flex items-center gap-2" onClick={closeMenu}>
-                    <span className="flex h-8 w-8 items-center justify-center rounded-md bg-slate-900 dark:bg-slate-900">
+                    <span className="flex h-8 w-8 items-center justify-center rounded-md bg-purple-ephany dark:bg-slate-900">
                         <img
                             src={LogoLetter}
                             alt="Ephany logo"
