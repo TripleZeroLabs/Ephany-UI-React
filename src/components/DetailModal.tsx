@@ -16,7 +16,6 @@ export function DetailModal<T>({ open, item, onClose, title }: DetailModalProps<
 
   // --- LOGIC: Unit Handling & Formatting Helpers (Preserved) ---
 
-  // Pull display units once, hide it from rendering, and use it to suffix values.
   const displayUnitsRaw =
     anyItem?._display_units ??
     anyItem?.display_units ??
@@ -45,7 +44,7 @@ export function DetailModal<T>({ open, item, onClose, title }: DetailModalProps<
 
   const roundToHundredths = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
 
-  const getUnitForField = (rawKey: string): string | null => {
+  const getUnitForField = (rawKey: string): ReactNode | null => {
     const k = rawKey.toLowerCase();
     if (k.includes("height") || k.includes("width") || k.includes("depth")) {
       return unitMap.length ?? null;
@@ -159,61 +158,94 @@ export function DetailModal<T>({ open, item, onClose, title }: DetailModalProps<
     }
   };
 
-  const renderFilesSection = (files: any) => {
-    if (!Array.isArray(files) || files.length === 0) {
-      return <span className="text-slate-400">No files</span>;
-    }
-    const rows = files.map((file: any, index: number) => {
-      const href: string | undefined = file.file || file.url || file.href;
-      const category: string =
-        file.category_display ||
-        file.category ||
-        file.type_display ||
-        file.type ||
-        `File ${index + 1}`;
+  // --- RENDER: Image Component ---
+  const renderImage = () => {
+    const imgUrl = anyItem.catalog_img || anyItem.image;
 
-      if (!href) {
-        return {
-          key: category,
-          value: (
-            <pre className="whitespace-pre-wrap break-words text-[11px] text-slate-700 dark:text-slate-200">
-              {JSON.stringify(file, null, 2)}
-            </pre>
-          ),
-        };
-      }
-      const filename = file.filename || file.name || fileNameFromUrl(href);
-      return {
-        key: category,
-        value: (
-          <a href={href} target="_blank" rel="noopener noreferrer" className="detail-subtable-link">
-            <span className="break-words whitespace-normal">{filename}</span>
-          </a>
-        ),
-      };
-    });
-    return renderSection("Files", rows, "No files");
+    if (imgUrl) {
+      return (
+        <div className="overflow-hidden rounded-lg border border-slate-200 bg-slate-50 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+          <img
+            src={imgUrl}
+            alt="Asset Catalog"
+            className="h-auto w-full object-contain"
+            style={{ maxHeight: "300px", minHeight: "150px" }} // contain ensures no cropping
+          />
+        </div>
+      );
+    }
+
+    // Placeholder
+    return (
+      <div className="flex aspect-video w-full items-center justify-center rounded-lg border border-dashed border-slate-300 bg-slate-50 dark:border-slate-700 dark:bg-slate-800/50">
+        <div className="flex flex-col items-center gap-2 text-slate-400">
+          <svg className="h-10 w-10 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+          </svg>
+          <span className="text-xs font-medium">No Image</span>
+        </div>
+      </div>
+    );
   };
 
-  // --- RENDER: New Structural Layout (Matches ProjectSnapshotsModal) ---
+  // --- RENDER: Files (Simple List) ---
+  const renderSimpleFiles = () => {
+    const files = anyItem.files;
+    if (!Array.isArray(files) || files.length === 0) return null;
+
+    return (
+      <div className="mt-4 border-t border-slate-100 pt-3 dark:border-slate-700">
+        <h4 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+          Attachments
+        </h4>
+        <div className="space-y-2">
+          {files.map((file: any, index: number) => {
+             const href = file.file || file.url || file.href;
+             const category = file.category_display || file.category || file.type || `File ${index + 1}`;
+
+             if (!href) return null;
+
+             const filename = file.filename || file.name || fileNameFromUrl(href);
+
+             return (
+               <div key={index} className="flex items-baseline gap-2 text-xs">
+                 <span className="min-w-[80px] font-medium text-slate-600 dark:text-slate-300">
+                   {category}:
+                 </span>
+                 <a
+                   href={href}
+                   target="_blank"
+                   rel="noopener noreferrer"
+                   className="break-all text-blue-600 hover:text-blue-700 hover:underline dark:text-blue-400"
+                 >
+                   {filename}
+                 </a>
+               </div>
+             );
+          })}
+        </div>
+      </div>
+    );
+  };
+
+  // --- RENDER: Main Layout ---
 
   return (
-    // Z-index 100 to sit on top of everything
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-      
+
       {/* Backdrop */}
-      <div 
+      <div
         className="fixed inset-0 bg-gray-900 bg-opacity-50 transition-opacity backdrop-blur-sm"
         onClick={onClose}
         aria-hidden="true"
       />
 
       {/* Modal Panel */}
-      <div 
-        className="relative flex w-full max-w-3xl flex-col rounded-lg bg-white shadow-2xl dark:bg-slate-900 max-h-[85vh]"
+      <div
+        className="relative flex w-full max-w-4xl flex-col rounded-lg bg-white shadow-2xl dark:bg-slate-900 max-h-[90vh]"
         onClick={(e) => e.stopPropagation()}
       >
-        
+
         {/* Header (Fixed) */}
         <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4 dark:border-slate-700">
           <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
@@ -224,7 +256,6 @@ export function DetailModal<T>({ open, item, onClose, title }: DetailModalProps<
             className="rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-300 transition-colors"
             aria-label="Close modal"
           >
-            {/* Standard X icon */}
             <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
             </svg>
@@ -233,40 +264,68 @@ export function DetailModal<T>({ open, item, onClose, title }: DetailModalProps<
 
         {/* Content Body (Scrollable) */}
         <div className="flex-1 overflow-y-auto p-6">
-          
-          {/* Main Item Table */}
-          <table className="w-full table-fixed border-collapse text-xs mb-6">
-            <tbody>
-              {entries.map(([key, value]) => {
-                const lowerKey = key.toLowerCase();
-                // Skip special logic fields
-                if (
-                  lowerKey === "id" ||
-                  lowerKey === "custom_fields" ||
-                  lowerKey === "files" ||
-                  lowerKey.includes("display_units")
-                ) {
-                  return null;
-                }
 
-                return (
-                  <tr key={key} className="border-b border-slate-100 last:border-0 dark:border-slate-800">
-                    <td className={`${KEY_COL} py-2 pr-3 align-top font-medium text-slate-600 dark:text-slate-300`}>
-                      <span className="block break-words whitespace-normal">{formatKey(key)}</span>
-                    </td>
-                    <td className="py-2 text-slate-900 dark:text-slate-100 break-words whitespace-normal">
-                      {formatValue(value, key)}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+          {/* LAYOUT STRATEGY:
+              Mobile: Flex Column (Image First)
+              Desktop: Flex Row (Image on Right)
+          */}
+          <div className="flex flex-col gap-8 md:flex-row">
 
-          {/* Sub-Sections (Custom Fields & Files) */}
-          <div className="space-y-6">
-            {"custom_fields" in anyItem && renderCustomFieldsSection(anyItem.custom_fields)}
-            {Array.isArray(anyItem.files) && anyItem.files.length > 0 && (renderFilesSection(anyItem.files))}
+            {/* 1. DATA COLUMN (Left on desktop, Bottom on mobile) */}
+            <div className="order-2 flex-1 md:order-1 space-y-8">
+
+              {/* Main Attributes */}
+              <div className="space-y-2">
+                 <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                    Core Attributes
+                  </div>
+                <table className="w-full table-fixed border-collapse text-xs">
+                  <tbody>
+                    {entries.map(([key, value]) => {
+                      const lowerKey = key.toLowerCase();
+                      // Skip special logic fields OR fields we handle elsewhere
+                      if (
+                        lowerKey === "id" ||
+                        lowerKey === "custom_fields" ||
+                        lowerKey === "files" ||
+                        lowerKey.includes("display_units") ||
+                        lowerKey === "catalog_img" ||
+                        lowerKey === "image"
+                      ) {
+                        return null;
+                      }
+
+                      return (
+                        <tr key={key} className="border-b border-slate-100 last:border-0 dark:border-slate-800">
+                          <td className={`${KEY_COL} py-2 pr-3 align-top font-medium text-slate-600 dark:text-slate-300`}>
+                            <span className="block break-words whitespace-normal">{formatKey(key)}</span>
+                          </td>
+                          <td className="py-2 text-slate-900 dark:text-slate-100 break-words whitespace-normal">
+                            {formatValue(value, key)}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Sub-Sections */}
+              {"custom_fields" in anyItem && renderCustomFieldsSection(anyItem.custom_fields)}
+
+              {/* Removed renderFilesSection from here */}
+            </div>
+
+            {/* 2. IMAGE COLUMN (Right on desktop, Top on mobile) */}
+            <div className="order-1 w-full md:order-2 md:w-1/3 md:min-w-[250px]">
+              <div className="sticky top-0">
+                {renderImage()}
+
+                {/* Files are now rendered here, under the image */}
+                {renderSimpleFiles()}
+              </div>
+            </div>
+
           </div>
         </div>
 
