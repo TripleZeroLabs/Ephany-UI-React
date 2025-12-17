@@ -1,4 +1,3 @@
-// src/components/DataTable.tsx
 import type { ReactNode } from "react";
 
 export type ColumnDef<T> = {

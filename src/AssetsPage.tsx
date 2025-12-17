@@ -1,10 +1,11 @@
-// src/AssetsPage.tsx
 import { useEffect, useMemo, useState } from "react";
 import {
   fetchAssets,
   fetchAllCategories,
+  fetchAllManufacturers, // <-- Import new function
   type Asset,
   type AssetCategory,
+  type AssetManufacturer, // <-- Import new type
 } from "./api/assets";
 import { FiltersPanel, type SelectFilterConfig } from "./components/FiltersPanel";
 import { DataTable, type ColumnDef } from "./components/DataTable";
@@ -20,7 +21,9 @@ export function AssetsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Static filter options
   const [allCategories, setAllCategories] = useState<AssetCategory[]>([]);
+  const [allManufacturers, setAllManufacturers] = useState<AssetManufacturer[]>([]);
 
   // Server-side paging + search
   const [page, setPage] = useState(1);
@@ -31,7 +34,7 @@ export function AssetsPage() {
   );
 
   const [searchTerm, setSearchTerm] = useState("");
-  // Filters now control the server-side query parameters.
+  // Server-side filters
   const [manufacturerFilter, setManufacturerFilter] = useState<string>("");
   const [categoryFilter, setCategoryFilter] = useState<string>("");
 
@@ -39,7 +42,6 @@ export function AssetsPage() {
 
   /**
    * Effect for fetching paginated asset data.
-   * Runs on changes to page, pageSize, search, and server-side filters.
    */
   useEffect(() => {
     let mounted = true;
@@ -53,8 +55,9 @@ export function AssetsPage() {
           page,
           pageSize,
           search: searchTerm.trim() || undefined,
-          // Pass category filter to the server for correct pagination.
+          // Pass BOTH filters to the server
           categoryName: categoryFilter || undefined,
+          manufacturerName: manufacturerFilter || undefined,
         });
 
         if (!mounted) return;
@@ -62,7 +65,6 @@ export function AssetsPage() {
         setTotalCount(data.count);
       } catch (err: unknown) {
         if (!mounted) return;
-        // Type-safe error handling
         if (err instanceof Error) {
           setError(err.message);
         } else {
@@ -83,92 +85,69 @@ export function AssetsPage() {
     pageSize,
     searchTerm,
     categoryFilter,
+    manufacturerFilter, // <-- Added to dependency array
   ]);
 
   /**
-   * Effect for fetching static category data for the filter dropdown.
-   * Runs only once on component mount.
+   * Effect for fetching static filter data (Categories & Manufacturers).
    */
   useEffect(() => {
-    const loadCategories = async () => {
+    const loadFilters = async () => {
       try {
-        const categories = await fetchAllCategories();
+        // Run fetches in parallel
+        const [categories, manufacturers] = await Promise.all([
+          fetchAllCategories(),
+          fetchAllManufacturers(),
+        ]);
+
         setAllCategories(categories);
+        setAllManufacturers(manufacturers);
       } catch (err: unknown) {
-        // Log, but do not block asset loading if category options fail to load
-        console.error("Failed to load all categories for filter:", err);
+        console.error("Failed to load filter options:", err);
       }
     };
-    loadCategories();
+    loadFilters();
   }, []);
 
-  // Manufacturer options (calculated from current page's assets)
-  // This is still subject to the disappearing options bug until migrated to the server.
-  const manufacturers = useMemo(() => {
-    const names = Array.from(
-      new Set(
-        assets
-          .map((a) => a.manufacturer_name)
-          .filter((name): name is string => !!name),
-      ),
-    );
-    names.sort((a, b) => a.localeCompare(b));
-    return names;
-  }, [assets]);
+  // Removed: Client-side calculation of manufacturers
+  // Removed: Client-side filtering logic (filteredAssets)
 
-  /**
-   * Client-side filters. Only manufacturer filtering remains here
-   * until it is also migrated to the server. Category filtering is handled on the server.
-   */
-  const filteredAssets = useMemo(() => {
-    // If the Manufacturer filter is active, we still apply it client-side.
-    return assets.filter((asset) => {
-      if (manufacturerFilter && asset.manufacturer_name !== manufacturerFilter) {
-        return false;
-      }
-      return true;
-    });
-  }, [assets, manufacturerFilter]);
-
-  // FiltersPanel handlers
+  // Handlers
   const handleSearchChange = (value: string) => {
     setPage(1);
     setSearchTerm(value);
   };
 
   const handleManufacturerChange = (value: string) => {
-    // Reset page to 1 on filter change to ensure pagination remains correct.
     setPage(1);
     setManufacturerFilter(value);
   };
 
   const handleCategoryChange = (value: string) => {
-    // Reset page to 1 on filter change to ensure pagination remains correct.
     setPage(1);
     setCategoryFilter(value);
   };
 
   const selectFilters: SelectFilterConfig[] = [
-    // Manufacturer filter (options based on current page)
-    ...(manufacturers.length
+    // Manufacturer filter (now using static server list)
+    ...(allManufacturers.length
       ? [
           {
             id: "manufacturer-filter",
             label: "Manufacturer",
             value: manufacturerFilter,
-            options: manufacturers,
+            options: allManufacturers.map((m) => m.name),
             onChange: handleManufacturerChange,
           } as SelectFilterConfig,
         ]
       : []),
-    // Category filter (options based on static, full list)
+    // Category filter (using static server list)
     ...(allCategories.length
       ? [
           {
             id: "category-filter",
             label: "Category",
             value: categoryFilter,
-            // Map category objects [{id: 1, name: "A"}] to simple names ["A"]
             options: allCategories.map((c) => c.name),
             onChange: handleCategoryChange,
           } as SelectFilterConfig,
@@ -186,7 +165,6 @@ export function AssetsPage() {
       header: "Door Type",
       render: (asset) => {
         if (!asset.custom_fields) return "—";
-        // Safe access using bracket notation instead of 'any' casting
         const value = asset.custom_fields["door_type"] as string | undefined;
         return value ?? "—";
       },
@@ -276,7 +254,7 @@ export function AssetsPage() {
       <PaginationBar />
 
       <DataTable
-        rows={filteredAssets}
+        rows={assets} // <-- Passed 'assets' directly now, not 'filteredAssets'
         columns={columns}
         getRowKey={(asset) => asset.id}
         onRowClick={(asset) => setSelectedAsset(asset)}

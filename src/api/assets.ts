@@ -1,5 +1,3 @@
-// src/api/assets.ts
-
 export type Asset = {
   id: number;
   type_id: string;
@@ -35,6 +33,11 @@ export type AssetCategory = {
   name: string;
 };
 
+export type AssetManufacturer = {
+  id: number;
+  name: string;
+};
+
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api";
 const API_KEY = import.meta.env.VITE_API_KEY;
 
@@ -42,8 +45,8 @@ type FetchAssetsOptions = {
   page?: number;
   pageSize?: number;
   search?: string;
-  // This must be present for TypeScript to allow passing it
   categoryName?: string;
+  manufacturerName?: string;
 };
 
 /**
@@ -59,7 +62,8 @@ function getHeadersObject() {
 
 /**
  * Fetches a paginated list of assets from the primary API endpoint.
- * @param opts - Options for pagination and search.
+ * Supports searching and server-side filtering by category and manufacturer.
+ * @param opts - Options for pagination, search, and filtering.
  * @returns A promise resolving to PaginatedResponse<Asset>.
  */
 export async function fetchAssets(
@@ -71,14 +75,20 @@ export async function fetchAssets(
   const params = new URLSearchParams();
   params.set("page", String(page));
   params.set("page_size", String(pageSize));
-  if (opts.search) params.set("search", opts.search);
+  
+  if (opts.search) {
+    params.set("search", opts.search);
+  }
 
-  // --- CRITICAL SECTION: This sends the filter to Django ---
+  // Server-side filtering parameters
+  // Keys must match 'filterset_fields' in the Django ViewSet
   if (opts.categoryName) {
-    // Note: The key 'category__name' must match the filterset_fields in Django views.py
     params.set("category__name", opts.categoryName);
   }
-  // --------------------------------------------------------
+
+  if (opts.manufacturerName) {
+    params.set("manufacturer__name", opts.manufacturerName);
+  }
 
   const url = `${API_BASE_URL}/assets/?${params.toString()}`;
 
@@ -86,8 +96,6 @@ export async function fetchAssets(
     const res = await fetch(url, {
       headers: getHeadersObject(),
     });
-
-    console.log("fetchAssets response status:", res.status);
 
     if (!res.ok) {
       const text = await res.text();
@@ -107,8 +115,7 @@ export async function fetchAssets(
 
 /**
  * Fetches a complete, non-paginated list of all AssetCategories.
- * This is used to populate filter dropdowns that need consistent options
- * regardless of the current page's content.
+ * Used for populating static filter dropdowns.
  * @returns A promise resolving to AssetCategory[].
  */
 export async function fetchAllCategories(): Promise<AssetCategory[]> {
@@ -118,8 +125,6 @@ export async function fetchAllCategories(): Promise<AssetCategory[]> {
     const res = await fetch(url, {
       headers: getHeadersObject(),
     });
-
-    console.log("fetchAllCategories response status:", res.status);
 
     if (!res.ok) {
       const text = await res.text();
@@ -133,6 +138,35 @@ export async function fetchAllCategories(): Promise<AssetCategory[]> {
     return data;
   } catch (err) {
     console.error("fetchAllCategories network/other error:", err);
+    throw err;
+  }
+}
+
+/**
+ * Fetches a complete, non-paginated list of all Manufacturers.
+ * Used for populating static filter dropdowns.
+ * @returns A promise resolving to AssetManufacturer[].
+ */
+export async function fetchAllManufacturers(): Promise<AssetManufacturer[]> {
+  const url = `${API_BASE_URL}/assets/all_manufacturers/`;
+
+  try {
+    const res = await fetch(url, {
+      headers: getHeadersObject(),
+    });
+
+    if (!res.ok) {
+      const text = await res.text();
+      console.error("fetchAllManufacturers error body:", text);
+      throw new Error(
+        `Failed to fetch manufacturers: ${res.status} ${res.statusText} - ${text}`,
+      );
+    }
+
+    const data = (await res.json()) as AssetManufacturer[];
+    return data;
+  } catch (err) {
+    console.error("fetchAllManufacturers network/other error:", err);
     throw err;
   }
 }

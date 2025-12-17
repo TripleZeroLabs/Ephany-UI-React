@@ -14,8 +14,9 @@ export function DetailModal<T>({ open, item, onClose, title }: DetailModalProps<
   const anyItem = item as any;
   const entries = Object.entries(anyItem);
 
+  // --- LOGIC: Unit Handling & Formatting Helpers (Preserved) ---
+
   // Pull display units once, hide it from rendering, and use it to suffix values.
-  // Expected shape: { length: "mm", area: "m2", volume: "m3", mass: "kg" }
   const displayUnitsRaw =
     anyItem?._display_units ??
     anyItem?.display_units ??
@@ -39,25 +40,19 @@ export function DetailModal<T>({ open, item, onClose, title }: DetailModalProps<
       ? (displayUnits as Record<string, string>)
       : {};
 
-  // Helpers
   const formatKey = (key: string) =>
     key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 
   const roundToHundredths = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
 
-  // Map field name → unit abbreviation (extend as needed)
   const getUnitForField = (rawKey: string): string | null => {
     const k = rawKey.toLowerCase();
-
-    // Your Asset shape shows overall_* dimensions. Treat these as "length".
     if (k.includes("height") || k.includes("width") || k.includes("depth")) {
       return unitMap.length ?? null;
     }
-
     if (k.includes("area")) return unitMap.area ?? null;
     if (k.includes("volume")) return unitMap.volume ?? null;
     if (k.includes("mass") || k.includes("weight")) return unitMap.mass ?? null;
-
     return null;
   };
 
@@ -65,8 +60,6 @@ export function DetailModal<T>({ open, item, onClose, title }: DetailModalProps<
     if (value === null || value === undefined) {
       return <span className="text-slate-400">—</span>;
     }
-
-    // Numbers: round to hundredths
     if (typeof value === "number") {
       const rounded = roundToHundredths(value);
       const unit = keyForUnits ? getUnitForField(keyForUnits) : null;
@@ -76,12 +69,9 @@ export function DetailModal<T>({ open, item, onClose, title }: DetailModalProps<
         </span>
       );
     }
-
     if (typeof value === "boolean") {
       return <span className="break-words whitespace-normal">{String(value)}</span>;
     }
-
-    // Strings: wrap, and if they are numeric strings, round too
     if (typeof value === "string") {
       const trimmed = value.trim();
       const numeric = trimmed !== "" && !Number.isNaN(Number(trimmed));
@@ -94,18 +84,14 @@ export function DetailModal<T>({ open, item, onClose, title }: DetailModalProps<
           </span>
         );
       }
-
       return <span className="break-words whitespace-normal">{value}</span>;
     }
-
-    return null; // fall back handled by formatValue
+    return null;
   };
 
   const formatValue = (value: any, keyForUnits?: string): ReactNode => {
     const scalar = formatScalar(value, keyForUnits);
     if (scalar !== null) return scalar;
-
-    // Objects / arrays → pretty JSON, but ensure wrap
     return (
       <pre className="whitespace-pre-wrap break-words text-xs text-slate-800 dark:text-slate-200">
         {JSON.stringify(value, null, 2)}
@@ -113,10 +99,8 @@ export function DetailModal<T>({ open, item, onClose, title }: DetailModalProps<
     );
   };
 
-  // Consistent key column width across all tables
   const KEY_COL = "w-[125px] min-w-[125px] max-w-[125px]";
 
-  // Renders a "section" with a heading and key/value rows that match the main table styling
   const renderSection = (
     heading: string,
     rows: Array<{ key: string; value: ReactNode }>,
@@ -125,22 +109,16 @@ export function DetailModal<T>({ open, item, onClose, title }: DetailModalProps<
     if (!rows || rows.length === 0) {
       return <span className="text-slate-400">{emptyText}</span>;
     }
-
     return (
       <div className="space-y-2">
         <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
           {heading}
         </div>
-
-        {/* table-fixed + explicit key column width prevents column drift */}
         <table className="w-full table-fixed border-collapse text-xs">
           <tbody>
             {rows.map((r) => (
               <tr key={r.key} className="border-b border-slate-100 last:border-0 dark:border-slate-800">
-                <td
-                  className={`${KEY_COL} py-2 pr-3 align-top font-medium text-slate-600 dark:text-slate-300`}
-                >
-                  {/* Wrap long keys instead of expanding width */}
+                <td className={`${KEY_COL} py-2 pr-3 align-top font-medium text-slate-600 dark:text-slate-300`}>
                   <span className="block break-words whitespace-normal">{formatKey(r.key)}</span>
                 </td>
                 <td className="py-2 text-slate-900 dark:text-slate-100 break-words whitespace-normal">
@@ -156,14 +134,9 @@ export function DetailModal<T>({ open, item, onClose, title }: DetailModalProps<
 
   const renderCustomFieldsSection = (raw: any) => {
     const obj = normalizeObjectLike(raw);
-
     if (!obj) return <span className="text-slate-400">—</span>;
     if (typeof obj === "string") {
-      return (
-        <pre className="whitespace-pre-wrap break-words text-[11px] text-slate-700 dark:text-slate-200">
-          {obj}
-        </pre>
-      );
+      return <pre className="whitespace-pre-wrap break-words text-[11px] text-slate-700 dark:text-slate-200">{obj}</pre>;
     }
     if (typeof obj !== "object") return <span className="text-slate-400">—</span>;
 
@@ -171,7 +144,6 @@ export function DetailModal<T>({ open, item, onClose, title }: DetailModalProps<
       key: k,
       value: formatValue(v, k),
     }));
-
     return renderSection("Custom Fields", rows, "No custom fields");
   };
 
@@ -191,7 +163,6 @@ export function DetailModal<T>({ open, item, onClose, title }: DetailModalProps<
     if (!Array.isArray(files) || files.length === 0) {
       return <span className="text-slate-400">No files</span>;
     }
-
     const rows = files.map((file: any, index: number) => {
       const href: string | undefined = file.file || file.url || file.href;
       const category: string =
@@ -211,9 +182,7 @@ export function DetailModal<T>({ open, item, onClose, title }: DetailModalProps<
           ),
         };
       }
-
       const filename = file.filename || file.name || fileNameFromUrl(href);
-
       return {
         key: category,
         value: (
@@ -223,56 +192,66 @@ export function DetailModal<T>({ open, item, onClose, title }: DetailModalProps<
         ),
       };
     });
-
     return renderSection("Files", rows, "No files");
   };
 
+  // --- RENDER: New Structural Layout (Matches ProjectSnapshotsModal) ---
+
   return (
-    <div
-      className="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/60 px-4"
-      onClick={onClose}
-    >
-      <div
-        className="max-h-[80vh] w-full max-w-3xl overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-900"
+    // Z-index 100 to sit on top of everything
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+      
+      {/* Backdrop */}
+      <div 
+        className="fixed inset-0 bg-gray-900 bg-opacity-50 transition-opacity backdrop-blur-sm"
+        onClick={onClose}
+        aria-hidden="true"
+      />
+
+      {/* Modal Panel */}
+      <div 
+        className="relative flex w-full max-w-3xl flex-col rounded-lg bg-white shadow-2xl dark:bg-slate-900 max-h-[85vh]"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3 dark:border-slate-700">
-          <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-50">
+        
+        {/* Header (Fixed) */}
+        <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4 dark:border-slate-700">
+          <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
             {title || "Details"}
-          </h2>
+          </h3>
           <button
             onClick={onClose}
-            className="rounded-md px-2 py-1 text-xs text-slate-500 hover:bg-slate-100 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100"
+            className="rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-300 transition-colors"
+            aria-label="Close modal"
           >
-            Close
+            {/* Standard X icon */}
+            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
           </button>
         </div>
 
-        {/* Body */}
-        <div className="max-h-[70vh] overflow-y-auto px-4 py-3">
-          {/* table-fixed + wrapping to prevent horizontal scroll */}
-          <table className="w-full table-fixed border-collapse text-xs">
+        {/* Content Body (Scrollable) */}
+        <div className="flex-1 overflow-y-auto p-6">
+          
+          {/* Main Item Table */}
+          <table className="w-full table-fixed border-collapse text-xs mb-6">
             <tbody>
               {entries.map(([key, value]) => {
                 const lowerKey = key.toLowerCase();
-
-                const isId = lowerKey === "id";
-                const isCustomFields = lowerKey === "custom_fields";
-                const isFiles = lowerKey === "files";
-                const isDisplayUnits = lowerKey.includes("display_units");
-
-                // Skip non-display fields
-                if (isId || isCustomFields || isFiles || isDisplayUnits) return null;
+                // Skip special logic fields
+                if (
+                  lowerKey === "id" ||
+                  lowerKey === "custom_fields" ||
+                  lowerKey === "files" ||
+                  lowerKey.includes("display_units")
+                ) {
+                  return null;
+                }
 
                 return (
-                  <tr
-                    key={key}
-                    className="border-b border-slate-100 last:border-0 dark:border-slate-800"
-                  >
-                    <td
-                      className={`${KEY_COL} py-2 pr-3 align-top font-medium text-slate-600 dark:text-slate-300`}
-                    >
+                  <tr key={key} className="border-b border-slate-100 last:border-0 dark:border-slate-800">
+                    <td className={`${KEY_COL} py-2 pr-3 align-top font-medium text-slate-600 dark:text-slate-300`}>
                       <span className="block break-words whitespace-normal">{formatKey(key)}</span>
                     </td>
                     <td className="py-2 text-slate-900 dark:text-slate-100 break-words whitespace-normal">
@@ -284,12 +263,23 @@ export function DetailModal<T>({ open, item, onClose, title }: DetailModalProps<
             </tbody>
           </table>
 
-          {/* Sections */}
-          <div className="mt-4 space-y-5">
+          {/* Sub-Sections (Custom Fields & Files) */}
+          <div className="space-y-6">
             {"custom_fields" in anyItem && renderCustomFieldsSection(anyItem.custom_fields)}
             {Array.isArray(anyItem.files) && anyItem.files.length > 0 && (renderFilesSection(anyItem.files))}
           </div>
         </div>
+
+        {/* Footer (Fixed) */}
+        <div className="flex justify-end border-t border-slate-200 bg-slate-50 px-6 py-4 dark:border-slate-700 dark:bg-slate-800/50 rounded-b-lg">
+          <button
+            onClick={onClose}
+            className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600 transition-colors"
+          >
+            Close
+          </button>
+        </div>
+
       </div>
     </div>
   );

@@ -1,113 +1,194 @@
 import { useEffect, useMemo, useState } from "react";
 import { DataTable, type ColumnDef } from "./components/DataTable";
-import { FiltersPanel, type SelectFilterConfig, } from "./components/FiltersPanel";
+import { FiltersPanel } from "./components/FiltersPanel";
 import { fetchProjects, type Project } from "./api/projects";
+import { ProjectSnapshotsModal } from "./components/ProjectSnapshotsModal";
 import { usePageTitle } from "./hooks/usePageTitle";
 
+/**
+ * Renders the main Projects listing page with server-side pagination,
+ * searching, and a detail modal for viewing project snapshots.
+ */
 export function ProjectsPage() {
-    usePageTitle("Project");
-	const [projects, setProjects] = useState<Project[]>([]);
-	const [loading, setLoading] = useState(true);
-	const [error, setError] = useState<string | null>(null);
+  usePageTitle("Projects");
 
-	const [searchTerm, setSearchTerm] = useState("");
-	const [statusFilter, setStatusFilter] = useState<string>("");
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-	useEffect(() => {
-		const load = async () => {
-			try {
-				const data = await fetchProjects();
-				setProjects(data);
-			} catch (err: any) {
-				setError(err?.message ?? "Unknown error");
-			} finally {
-				setLoading(false);
-			}
-		};
-		load();
-	}, []);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+  const [searchTerm, setSearchTerm] = useState("");
 
-	// Unique statuses, if available
-	const statuses = useMemo(() => {
-		const names = Array.from(
-			new Set(
-				projects
-					.map((p) => p.status)
-					.filter((name): name is string => !!name)
-			)
-		);
-		names.sort((a, b) => a.localeCompare(b));
-		return names;
-	}, [projects]);
+  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
 
-	const filteredProjects = useMemo(() => {
-		const term = searchTerm.trim().toLowerCase();
+  const totalPages = useMemo(
+    () => Math.max(1, Math.ceil(totalCount / pageSize)),
+    [totalCount, pageSize],
+  );
 
-		return projects.filter((p) => {
-			if (statusFilter && p.status !== statusFilter) {
-				return false;
-			}
+  useEffect(() => {
+    let mounted = true;
 
-			if (!term) return true;
-			const haystack = JSON.stringify(p).toLowerCase();
-			return haystack.includes(term);
-		});
-	}, [projects, statusFilter, searchTerm]);
+    const load = async () => {
+      setLoading(true);
+      setError(null);
 
-	const handleSearchChange = (value: string) => {
-		setSearchTerm(value);
-	};
+      try {
+        const data = await fetchProjects({
+          page,
+          pageSize,
+          search: searchTerm.trim() || undefined,
+        });
 
-	const handleStatusChange = (value: string) => {
-		setStatusFilter(value);
-	};
+        if (!mounted) return;
+        setProjects(data.results);
+        setTotalCount(data.count);
+      } catch (err: unknown) {
+        if (!mounted) return;
+        if (err instanceof Error) {
+          setError(err.message);
+        } else {
+          setError("An unknown error occurred");
+        }
+      } finally {
+        if (mounted) {
+          setLoading(false);
+        }
+      }
+    };
 
-	const selectFilters: SelectFilterConfig[] = statuses.length
-		? [
-				{
-					id: "status-filter",
-					label: "Status",
-					value: statusFilter,
-					options: statuses,
-					onChange: handleStatusChange,
-				},
-		  ]
-		: [];
+    load();
+    return () => {
+      mounted = false;
+    };
+  }, [page, pageSize, searchTerm]);
 
-	const columns: ColumnDef<Project>[] = [
-		{ key: "name", header: "Name" },
-		{ key: "code", header: "Code" },
-		{ key: "status", header: "Status" },
-		{ key: "region", header: "Region" },
-	];
+  const handleSearchChange = (value: string) => {
+    setPage(1);
+    setSearchTerm(value);
+  };
 
-	if (loading) return <div className="p-6 text-sm text-slate-600">Loading projects…</div>;
-	if (error)
-		return (
-			<div className="m-6 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-				Error: {error}
-			</div>
-		);
+  const columns: ColumnDef<Project>[] = [
+    { key: "job_id", header: "Job ID" },
+    { key: "name", header: "Project Name" },
+    { 
+      key: "snapshot_count", 
+      header: "Snapshots",
+      render: (p) => (
+        <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-800 dark:bg-slate-800 dark:text-slate-200">
+          {p.snapshot_count}
+        </span>
+      )
+    },
+    { 
+      key: "updated_at", 
+      header: "Last Updated",
+      render: (p) => new Date(p.updated_at).toLocaleDateString() 
+    },
+  ];
 
-	return (
-		<div className="">
-			<FiltersPanel
-				searchValue={searchTerm}
-				onSearchChange={handleSearchChange}
-				searchPlaceholder="Search name, code, region…"
-				selectFilters={selectFilters}
-				summary={
-					<>
-						Showing {filteredProjects.length} of {projects.length} projects
-					</>
-				}
-			/>
+  const PaginationBar = () => {
+    const from = totalCount === 0 ? 0 : (page - 1) * pageSize + 1;
+    const to = Math.min(page * pageSize, totalCount);
 
-			<DataTable
-				rows={filteredProjects}
-				columns={columns}
-				getRowKey={(p) => p.id}
-			/>
-		</div>
-	);
+    return (
+      <div className="flex flex-col gap-2 border-b border-slate-200 bg-white px-4 py-3 text-xs text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-2">
+          <span className="font-medium text-slate-700 dark:text-slate-200">
+            Page {page} of {totalPages}
+          </span>
+          <span className="text-slate-400">•</span>
+          <span>
+            Showing {from}-{to} of {totalCount}
+          </span>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <label className="hidden sm:block text-slate-500 dark:text-slate-400">
+            Rows:
+          </label>
+          <select
+            className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-700 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+            value={pageSize}
+            onChange={(e) => {
+              setPage(1);
+              setPageSize(Number(e.target.value));
+            }}
+          >
+            {[10, 20, 50, 100].map((n) => (
+              <option key={n} value={n}>
+                {n} / page
+              </option>
+            ))}
+          </select>
+
+          <button
+            className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-700 shadow-sm hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+            disabled={page <= 1 || loading}
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+          >
+            Prev
+          </button>
+
+          <button
+            className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-700 shadow-sm hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+            disabled={page >= totalPages || loading}
+            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+          >
+            Next
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  if (loading && projects.length === 0) {
+    return <div className="p-6 text-sm text-slate-600 dark:text-slate-300">Loading projects…</div>;
+  }
+
+  if (error) {
+    return (
+      <div className="m-6 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        Error: {error}
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <FiltersPanel
+        searchValue={searchTerm}
+        onSearchChange={handleSearchChange}
+        searchPlaceholder="Search projects by name or ID…"
+        summary={
+          <>
+             Showing <span className="font-medium">{projects.length}</span>{" "}
+             items on this page •{" "}
+             <span className="font-medium">{totalCount}</span> total matching •{" "}
+             <span className="font-mono">framework.ephany.io</span>
+          </>
+        }
+      />
+
+      <PaginationBar />
+
+      <DataTable
+        rows={projects}
+        columns={columns}
+        getRowKey={(p) => p.id}
+        onRowClick={(project) => setSelectedProject(project)}
+      />
+
+      <div className="border-t border-slate-200 dark:border-slate-800">
+        <PaginationBar />
+      </div>
+
+      <ProjectSnapshotsModal 
+        project={selectedProject} 
+        onClose={() => setSelectedProject(null)} 
+      />
+    </div>
+  );
 }
