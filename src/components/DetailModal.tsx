@@ -14,7 +14,7 @@ export function DetailModal<T>({ open, item, onClose, title }: DetailModalProps<
   const anyItem = item as any;
   const entries = Object.entries(anyItem);
 
-  // --- LOGIC: Unit Handling & Formatting Helpers (Preserved) ---
+  // --- LOGIC: Unit Handling & Formatting Helpers ---
 
   const displayUnitsRaw =
     anyItem?._display_units ??
@@ -73,6 +73,22 @@ export function DetailModal<T>({ open, item, onClose, title }: DetailModalProps<
     }
     if (typeof value === "string") {
       const trimmed = value.trim();
+
+      // 1. CHECK FOR URL
+      if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
+        return (
+          <a
+            href={trimmed}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-600 hover:text-blue-800 hover:underline break-all"
+          >
+            {trimmed}
+          </a>
+        );
+      }
+
+      // 2. CHECK FOR NUMERIC STRING
       const numeric = trimmed !== "" && !Number.isNaN(Number(trimmed));
       if (numeric) {
         const rounded = roundToHundredths(Number(trimmed));
@@ -89,6 +105,12 @@ export function DetailModal<T>({ open, item, onClose, title }: DetailModalProps<
   };
 
   const formatValue = (value: any, keyForUnits?: string): ReactNode => {
+    // If value is an object, check if it has a 'name' property (Common for nested Manufacturer/Category objects)
+    if (typeof value === "object" && value !== null && !Array.isArray(value)) {
+        if ("name" in value) return formatScalar(value.name, keyForUnits);
+        if ("title" in value) return formatScalar(value.title, keyForUnits);
+    }
+
     const scalar = formatScalar(value, keyForUnits);
     if (scalar !== null) return scalar;
     return (
@@ -115,8 +137,8 @@ export function DetailModal<T>({ open, item, onClose, title }: DetailModalProps<
         </div>
         <table className="w-full table-fixed border-collapse text-xs">
           <tbody>
-            {rows.map((r) => (
-              <tr key={r.key} className="border-b border-slate-100 last:border-0 dark:border-slate-800">
+            {rows.map((r, i) => (
+              <tr key={`${r.key}-${i}`} className="border-b border-slate-100 last:border-0 dark:border-slate-800">
                 <td className={`${KEY_COL} py-2 pr-3 align-top font-medium text-slate-600 dark:text-slate-300`}>
                   <span className="block break-words whitespace-normal">{formatKey(r.key)}</span>
                 </td>
@@ -169,7 +191,7 @@ export function DetailModal<T>({ open, item, onClose, title }: DetailModalProps<
             src={imgUrl}
             alt="Asset Catalog"
             className="h-auto w-full object-contain"
-            style={{ maxHeight: "300px", minHeight: "150px" }} // contain ensures no cropping
+            style={{ maxHeight: "300px", minHeight: "150px" }}
           />
         </div>
       );
@@ -265,63 +287,68 @@ export function DetailModal<T>({ open, item, onClose, title }: DetailModalProps<
         {/* Content Body (Scrollable) */}
         <div className="flex-1 overflow-y-auto p-6">
 
-          {/* LAYOUT STRATEGY:
-              Mobile: Flex Column (Image First)
-              Desktop: Flex Row (Image on Right)
-          */}
           <div className="flex flex-col gap-8 md:flex-row">
 
-            {/* 1. DATA COLUMN (Left on desktop, Bottom on mobile) */}
+            {/* 1. DATA COLUMN */}
             <div className="order-2 flex-1 md:order-1 space-y-8">
 
-              {/* Main Attributes */}
+              {/* Core Attributes */}
               <div className="space-y-2">
                  <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                     Core Attributes
                   </div>
                 <table className="w-full table-fixed border-collapse text-xs">
                   <tbody>
-                    {entries.map(([key, value]) => {
-                      const lowerKey = key.toLowerCase();
-                      // Skip special logic fields OR fields we handle elsewhere
-                      if (
-                        lowerKey === "id" ||
-                        lowerKey === "custom_fields" ||
-                        lowerKey === "files" ||
-                        lowerKey.includes("display_units") ||
-                        lowerKey === "catalog_img" ||
-                        lowerKey === "image"
-                      ) {
-                        return null;
-                      }
+                    {entries
+                      .filter(([key]) => {
+                        const lowerKey = key.toLowerCase();
 
-                      return (
-                        <tr key={key} className="border-b border-slate-100 last:border-0 dark:border-slate-800">
-                          <td className={`${KEY_COL} py-2 pr-3 align-top font-medium text-slate-600 dark:text-slate-300`}>
-                            <span className="block break-words whitespace-normal">{formatKey(key)}</span>
-                          </td>
-                          <td className="py-2 text-slate-900 dark:text-slate-100 break-words whitespace-normal">
-                            {formatValue(value, key)}
-                          </td>
-                        </tr>
-                      );
-                    })}
+                        // Basic Exclusions
+                        if (
+                          lowerKey === "id" ||
+                          lowerKey === "custom_fields" ||
+                          lowerKey === "files" ||
+                          lowerKey.includes("display_units") ||
+                          lowerKey === "catalog_img" ||
+                          lowerKey === "image"
+                        ) return false;
+
+                        // Smart Exclusion: Hide PK (ID) fields if a corresponding Name field exists
+                        if ((lowerKey === "manufacturer" || lowerKey === "manufacturer_id") && (anyItem.manufacturer_name || anyItem.manufacturer_display)) return false;
+                        if ((lowerKey === "category" || lowerKey === "category_id") && (anyItem.category_name || anyItem.category_display)) return false;
+
+                        return true;
+                      })
+                      .map(([key, value]) => {
+                        // Normalize Label: "manufacturer_name" -> "manufacturer" (so formatKey makes it "Manufacturer")
+                        let labelKey = key;
+                        if (key === "manufacturer_name") labelKey = "manufacturer";
+                        if (key === "category_name") labelKey = "category";
+
+                        return (
+                          <tr key={key} className="border-b border-slate-100 last:border-0 dark:border-slate-800">
+                            <td className={`${KEY_COL} py-2 pr-3 align-top font-medium text-slate-600 dark:text-slate-300`}>
+                              <span className="block break-words whitespace-normal">{formatKey(labelKey)}</span>
+                            </td>
+                            <td className="py-2 text-slate-900 dark:text-slate-100 break-words whitespace-normal">
+                              {formatValue(value, labelKey)}
+                            </td>
+                          </tr>
+                        );
+                      })
+                    }
                   </tbody>
                 </table>
               </div>
 
               {/* Sub-Sections */}
               {"custom_fields" in anyItem && renderCustomFieldsSection(anyItem.custom_fields)}
-
-              {/* Removed renderFilesSection from here */}
             </div>
 
-            {/* 2. IMAGE COLUMN (Right on desktop, Top on mobile) */}
+            {/* 2. IMAGE COLUMN */}
             <div className="order-1 w-full md:order-2 md:w-1/3 md:min-w-[250px]">
               <div className="sticky top-0">
                 {renderImage()}
-
-                {/* Files are now rendered here, under the image */}
                 {renderSimpleFiles()}
               </div>
             </div>
