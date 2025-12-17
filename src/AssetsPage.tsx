@@ -176,7 +176,7 @@ export function AssetsPage() {
     const to = Math.min(page * pageSize, totalCount);
 
     return (
-      <div className="flex flex-col gap-2 border-b border-slate-200 bg-white px-4 py-3 text-xs text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-2 px-4 py-3 text-xs text-slate-600 dark:text-slate-300 sm:flex-row sm:items-center sm:justify-between">
         <div className="items-center gap-2 flex">
           <span className="font-medium text-slate-700 dark:text-slate-200">
             Page {page} of {totalPages}
