@@ -162,14 +162,6 @@ export function ProjectsPage() {
         searchValue={searchTerm}
         onSearchChange={handleSearchChange}
         searchPlaceholder="Search projects by name or ID…"
-        summary={
-          <>
-             Showing <span className="font-medium">{projects.length}</span>{" "}
-             items on this page •{" "}
-             <span className="font-medium">{totalCount}</span> total matching •{" "}
-             <span className="font-mono">framework.ephany.io</span>
-          </>
-        }
       />
 
       <PaginationBar />

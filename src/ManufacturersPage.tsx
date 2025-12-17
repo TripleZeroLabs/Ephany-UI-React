@@ -187,14 +187,6 @@ export function ManufacturersPage() {
         searchValue={searchTerm}
         onSearchChange={handleSearchChange}
         searchPlaceholder="Search manufacturers…"
-        summary={
-          <>
-             Showing <span className="font-medium">{manufacturers.length}</span>{" "}
-             items on this page •{" "}
-             <span className="font-medium">{totalCount}</span> total matching •{" "}
-             <span className="font-mono">framework.ephany.io</span>
-          </>
-        }
       />
 
       <PaginationBar />

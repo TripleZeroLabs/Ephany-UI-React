@@ -99,13 +99,15 @@ export function DetailModal<T>({ open, item, onClose, title }: DetailModalProps<
           </span>
         );
       }
-      return <span className="break-words whitespace-normal">{value}</span>;
+
+      // 3. REGULAR STRING (UPDATED FIX)
+      // 'whitespace-pre-wrap' preserves newlines (\n) and wraps text
+      return <span className="break-words whitespace-pre-wrap">{value}</span>;
     }
     return null;
   };
 
   const formatValue = (value: any, keyForUnits?: string): ReactNode => {
-    // If value is an object, check if it has a 'name' property (Common for nested Manufacturer/Category objects)
     if (typeof value === "object" && value !== null && !Array.isArray(value)) {
         if ("name" in value) return formatScalar(value.name, keyForUnits);
         if ("title" in value) return formatScalar(value.title, keyForUnits);
@@ -180,7 +182,6 @@ export function DetailModal<T>({ open, item, onClose, title }: DetailModalProps<
     }
   };
 
-  // --- RENDER: Image Component ---
   const renderImage = () => {
     const imgUrl = anyItem.catalog_img || anyItem.image;
 
@@ -196,8 +197,6 @@ export function DetailModal<T>({ open, item, onClose, title }: DetailModalProps<
         </div>
       );
     }
-
-    // Placeholder
     return (
       <div className="flex aspect-video w-full items-center justify-center rounded-lg border border-dashed border-slate-300 bg-slate-50 dark:border-slate-700 dark:bg-slate-800/50">
         <div className="flex flex-col items-center gap-2 text-slate-400">
@@ -210,7 +209,6 @@ export function DetailModal<T>({ open, item, onClose, title }: DetailModalProps<
     );
   };
 
-  // --- RENDER: Files (Simple List) ---
   const renderSimpleFiles = () => {
     const files = anyItem.files;
     if (!Array.isArray(files) || files.length === 0) return null;
@@ -224,22 +222,14 @@ export function DetailModal<T>({ open, item, onClose, title }: DetailModalProps<
           {files.map((file: any, index: number) => {
              const href = file.file || file.url || file.href;
              const category = file.category_display || file.category || file.type || `File ${index + 1}`;
-
              if (!href) return null;
-
              const filename = file.filename || file.name || fileNameFromUrl(href);
-
              return (
                <div key={index} className="flex items-baseline gap-2 text-xs">
                  <span className="min-w-[80px] font-medium text-slate-600 dark:text-slate-300">
                    {category}:
                  </span>
-                 <a
-                   href={href}
-                   target="_blank"
-                   rel="noopener noreferrer"
-                   className="break-all text-blue-600 hover:text-blue-700 hover:underline dark:text-blue-400"
-                 >
+                 <a href={href} target="_blank" rel="noopener noreferrer" className="break-all text-blue-600 hover:text-blue-700 hover:underline dark:text-blue-400">
                    {filename}
                  </a>
                </div>
@@ -250,81 +240,35 @@ export function DetailModal<T>({ open, item, onClose, title }: DetailModalProps<
     );
   };
 
-  // --- RENDER: Main Layout ---
-
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-
-      {/* Backdrop */}
-      <div
-        className="fixed inset-0 bg-gray-900 bg-opacity-50 transition-opacity backdrop-blur-sm"
-        onClick={onClose}
-        aria-hidden="true"
-      />
-
-      {/* Modal Panel */}
-      <div
-        className="relative flex w-full max-w-4xl flex-col rounded-lg bg-white shadow-2xl dark:bg-slate-900 max-h-[90vh]"
-        onClick={(e) => e.stopPropagation()}
-      >
-
-        {/* Header (Fixed) */}
+      <div className="fixed inset-0 bg-gray-900 bg-opacity-50 transition-opacity backdrop-blur-sm" onClick={onClose} aria-hidden="true" />
+      <div className="relative flex w-full max-w-4xl flex-col rounded-lg bg-white shadow-2xl dark:bg-slate-900 max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4 dark:border-slate-700">
-          <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-            {title || "Details"}
-          </h3>
-          <button
-            onClick={onClose}
-            className="rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-300 transition-colors"
-            aria-label="Close modal"
-          >
-            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
+          <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">{title || "Details"}</h3>
+          <button onClick={onClose} className="rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-300 transition-colors">
+            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
           </button>
         </div>
-
-        {/* Content Body (Scrollable) */}
         <div className="flex-1 overflow-y-auto p-6">
-
           <div className="flex flex-col gap-8 md:flex-row">
-
-            {/* 1. DATA COLUMN */}
             <div className="order-2 flex-1 md:order-1 space-y-8">
-
-              {/* Core Attributes */}
               <div className="space-y-2">
-                 <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                    Core Attributes
-                  </div>
+                 <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Core Attributes</div>
                 <table className="w-full table-fixed border-collapse text-xs">
                   <tbody>
                     {entries
                       .filter(([key]) => {
                         const lowerKey = key.toLowerCase();
-
-                        // Basic Exclusions
-                        if (
-                          lowerKey === "id" ||
-                          lowerKey === "custom_fields" ||
-                          lowerKey === "files" ||
-                          lowerKey.includes("display_units") ||
-                          lowerKey === "catalog_img" ||
-                          lowerKey === "image"
-                        ) return false;
-
-                        // Smart Exclusion: Hide PK (ID) fields if a corresponding Name field exists
+                        if (['id', 'custom_fields', 'files', 'catalog_img', 'image'].includes(lowerKey) || lowerKey.includes('display_units')) return false;
                         if ((lowerKey === "manufacturer" || lowerKey === "manufacturer_id") && (anyItem.manufacturer_name || anyItem.manufacturer_display)) return false;
                         if ((lowerKey === "category" || lowerKey === "category_id") && (anyItem.category_name || anyItem.category_display)) return false;
-
                         return true;
                       })
                       .map(([key, value]) => {
-                        // Normalize Label: "manufacturer_name" -> "manufacturer" (so formatKey makes it "Manufacturer")
                         let labelKey = key;
                         if (key === "manufacturer_name") labelKey = "manufacturer";
                         if (key === "category_name") labelKey = "category";
-
                         return (
                           <tr key={key} className="border-b border-slate-100 last:border-0 dark:border-slate-800">
                             <td className={`${KEY_COL} py-2 pr-3 align-top font-medium text-slate-600 dark:text-slate-300`}>
@@ -340,32 +284,19 @@ export function DetailModal<T>({ open, item, onClose, title }: DetailModalProps<
                   </tbody>
                 </table>
               </div>
-
-              {/* Sub-Sections */}
               {"custom_fields" in anyItem && renderCustomFieldsSection(anyItem.custom_fields)}
             </div>
-
-            {/* 2. IMAGE COLUMN */}
             <div className="order-1 w-full md:order-2 md:w-1/3 md:min-w-[250px]">
               <div className="sticky top-0">
                 {renderImage()}
                 {renderSimpleFiles()}
               </div>
             </div>
-
           </div>
         </div>
-
-        {/* Footer (Fixed) */}
         <div className="flex justify-end border-t border-slate-200 bg-slate-50 px-6 py-4 dark:border-slate-700 dark:bg-slate-800/50 rounded-b-lg">
-          <button
-            onClick={onClose}
-            className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600 transition-colors"
-          >
-            Close
-          </button>
+          <button onClick={onClose} className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600 transition-colors">Close</button>
         </div>
-
       </div>
     </div>
   );
