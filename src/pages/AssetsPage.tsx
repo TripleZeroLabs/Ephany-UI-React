@@ -6,11 +6,11 @@ import {
   type Asset,
   type AssetCategory,
   type AssetManufacturer, // <-- Import new type
-} from "./api/assets";
-import { FiltersPanel, type SelectFilterConfig } from "./components/FiltersPanel";
-import { DataTable, type ColumnDef } from "./components/DataTable";
-import { DetailModal } from "./components/DetailModal";
-import { usePageTitle } from "./hooks/usePageTitle";
+} from "../api/assets.ts";
+import { FiltersPanel, type SelectFilterConfig } from "../components/FiltersPanel.tsx";
+import { DataTable, type ColumnDef } from "../components/DataTable.tsx";
+import { DetailModal } from "../components/DetailModal.tsx";
+import { usePageTitle } from "../hooks/usePageTitle.ts";
 
 export function AssetsPage() {
   usePageTitle("Assets");

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { type Project, type Snapshot, fetchSnapshotsForProject } from "../api/projects";
 
 type ProjectSnapshotsModalProps = {
@@ -7,6 +8,7 @@ type ProjectSnapshotsModalProps = {
 };
 
 export function ProjectSnapshotsModal({ project, onClose }: ProjectSnapshotsModalProps) {
+  const navigate = useNavigate();
   const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -33,12 +35,18 @@ export function ProjectSnapshotsModal({ project, onClose }: ProjectSnapshotsModa
     };
   }, [project]);
 
+  /**
+   * Navigates to the specific snapshot detail page and closes the modal.
+   */
+  const handleSnapshotClick = (snapshotId: number) => {
+    onClose();
+    navigate(`/snapshots/${snapshotId}`);
+  };
+
   if (!project) return null;
 
   return (
-    // z-[100] ensures this is on top of everything else (sidebars, headers, etc.)
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-
       {/* Backdrop: Semi-transparent dark background */}
       <div
         className="fixed inset-0 bg-gray-900 bg-opacity-50 transition-opacity backdrop-blur-sm"
@@ -97,19 +105,28 @@ export function ProjectSnapshotsModal({ project, onClose }: ProjectSnapshotsModa
                     <th scope="col" className="px-4 py-3 text-left font-medium text-slate-500 dark:text-slate-400">
                       Date Created
                     </th>
+                    <th scope="col" className="px-4 py-3 text-right font-medium text-slate-500 dark:text-slate-400">
+                      Action
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200 bg-white dark:divide-slate-700 dark:bg-slate-900">
                   {snapshots.map((snap) => (
                     <tr
                       key={snap.id}
-                      className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
+                      onClick={() => handleSnapshotClick(snap.id)}
+                      className="group cursor-pointer hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors"
                     >
-                      <td className="px-4 py-3 font-medium text-slate-900 dark:text-slate-200">
+                      <td className="px-4 py-3 font-medium text-slate-900 dark:text-slate-200 group-hover:text-indigo-600 dark:group-hover:text-indigo-400">
                         {snap.name}
                       </td>
                       <td className="px-4 py-3 text-slate-500 dark:text-slate-400">
-                        {new Date(snap.date).toLocaleDateString()} at {new Date(snap.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        {new Date(snap.date).toLocaleDateString()}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <span className="text-xs font-medium text-indigo-600 dark:text-indigo-400 opacity-0 group-hover:opacity-100 transition-opacity">
+                          View Instances &rarr;
+                        </span>
                       </td>
                     </tr>
                   ))}
@@ -128,7 +145,6 @@ export function ProjectSnapshotsModal({ project, onClose }: ProjectSnapshotsModa
             Close
           </button>
         </div>
-
       </div>
     </div>
   );

@@ -1,35 +1,33 @@
 import { useEffect, useMemo, useState } from "react";
-import { DataTable, type ColumnDef } from "./components/DataTable";
-import { FiltersPanel } from "./components/FiltersPanel";
-import { fetchManufacturers, type Manufacturer } from "./api/manufacturers";
-import { usePageTitle } from "./hooks/usePageTitle";
+import { DataTable, type ColumnDef } from "../components/DataTable.tsx";
+import { FiltersPanel } from "../components/FiltersPanel.tsx";
+import { fetchProjects, type Project } from "../api/projects.ts";
+import { ProjectSnapshotsModal } from "../components/ProjectSnapshotsModal.tsx";
+import { usePageTitle } from "../hooks/usePageTitle.ts";
 
-export function ManufacturersPage() {
-  usePageTitle("Manufacturers");
+/**
+ * Renders the main Projects listing page with server-side pagination,
+ * searching, and a detail modal for viewing project snapshots.
+ */
+export function ProjectsPage() {
+  usePageTitle("Projects");
 
-  // Data state
-  const [manufacturers, setManufacturers] = useState<Manufacturer[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Pagination state
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
-  
-  // Search state
   const [searchTerm, setSearchTerm] = useState("");
 
-  // Calculate total pages based on server count
+  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+
   const totalPages = useMemo(
     () => Math.max(1, Math.ceil(totalCount / pageSize)),
     [totalCount, pageSize],
   );
 
-  /**
-   * Effect to fetch paginated data from the server.
-   * Runs whenever page, pageSize, or search term changes.
-   */
   useEffect(() => {
     let mounted = true;
 
@@ -38,14 +36,14 @@ export function ManufacturersPage() {
       setError(null);
 
       try {
-        const data = await fetchManufacturers({
+        const data = await fetchProjects({
           page,
           pageSize,
           search: searchTerm.trim() || undefined,
         });
 
         if (!mounted) return;
-        setManufacturers(data.results);
+        setProjects(data.results);
         setTotalCount(data.count);
       } catch (err: unknown) {
         if (!mounted) return;
@@ -55,8 +53,6 @@ export function ManufacturersPage() {
           setError("An unknown error occurred");
         }
       } finally {
-        // Only update loading state if the component is still mounted.
-        // Avoids 'return' in finally block to prevent swallowing exceptions.
         if (mounted) {
           setLoading(false);
         }
@@ -70,43 +66,26 @@ export function ManufacturersPage() {
   }, [page, pageSize, searchTerm]);
 
   const handleSearchChange = (value: string) => {
-    setPage(1); // Reset to page 1 on new search
+    setPage(1);
     setSearchTerm(value);
   };
 
-  const columns: ColumnDef<Manufacturer>[] = [
-    {
-      key: "logo",
-      header: "Logo",
-      render: (m) =>
-        m.logo ? (
-          <img
-            src={m.logo}
-            alt={`${m.name} logo`}
-            className="h-8 w-auto object-contain"
-          />
-        ) : (
-          <div className="h-8 w-8 rounded bg-slate-100 dark:bg-slate-800" />
-        ),
+  const columns: ColumnDef<Project>[] = [
+    { key: "job_id", header: "Job ID" },
+    { key: "name", header: "Project Name" },
+    { 
+      key: "snapshot_count", 
+      header: "Snapshots",
+      render: (p) => (
+        <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-800 dark:bg-slate-800 dark:text-slate-200">
+          {p.snapshot_count}
+        </span>
+      )
     },
-    { key: "name", header: "Company Name" },
-    {
-      key: "url",
-      header: "Website",
-      render: (m) =>
-        m.url ? (
-          <a
-            href={m.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-blue-600 hover:underline dark:text-blue-400"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {m.url.replace(/^https?:\/\//, "").replace(/\/$/, "")}
-          </a>
-        ) : (
-          <span className="text-slate-400">—</span>
-        ),
+    { 
+      key: "updated_at", 
+      header: "Last Updated",
+      render: (p) => new Date(p.updated_at).toLocaleDateString() 
     },
   ];
 
@@ -165,12 +144,8 @@ export function ManufacturersPage() {
     );
   };
 
-  if (loading && manufacturers.length === 0) {
-    return (
-      <div className="p-6 text-sm text-slate-600 dark:text-slate-300">
-        Loading manufacturers…
-      </div>
-    );
+  if (loading && projects.length === 0) {
+    return <div className="p-6 text-sm text-slate-600 dark:text-slate-300">Loading projects…</div>;
   }
 
   if (error) {
@@ -186,20 +161,26 @@ export function ManufacturersPage() {
       <FiltersPanel
         searchValue={searchTerm}
         onSearchChange={handleSearchChange}
-        searchPlaceholder="Search manufacturers…"
+        searchPlaceholder="Search projects by name or ID…"
       />
 
       <PaginationBar />
 
       <DataTable
-        rows={manufacturers}
+        rows={projects}
         columns={columns}
-        getRowKey={(m) => m.id}
+        getRowKey={(p) => p.id}
+        onRowClick={(project) => setSelectedProject(project)}
       />
 
       <div className="border-t border-slate-200 dark:border-slate-800">
         <PaginationBar />
       </div>
+
+      <ProjectSnapshotsModal 
+        project={selectedProject} 
+        onClose={() => setSelectedProject(null)} 
+      />
     </div>
   );
 }
