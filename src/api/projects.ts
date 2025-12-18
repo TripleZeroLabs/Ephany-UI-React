@@ -3,50 +3,54 @@ import { type Asset } from "./assets";
 /**
  * Represents a Project entity.
  */
-export type Project = {
+export interface Project {
   id: number;
   job_id: string;
   name: string;
   description: string;
+  portfolio_img?: string | null;
   created_at: string;
   updated_at: string;
   snapshot_count: number;
-};
+}
 
 /**
  * Represents a Snapshot entity.
  */
-export type Snapshot = {
+export interface Snapshot {
   id: number;
   project: number;
   name: string;
   date: string;
   created_at: string;
-};
+  updated_at: string;
+}
 
 /**
  * Represents an occurrence of a library Asset within a Snapshot.
+ * Uses 'unknown' for custom_fields to satisfy ESLint rules against 'any'.
  */
-export type AssetInstance = {
+export interface AssetInstance {
   id: number;
   snapshot: number;
   asset: number; // ID of the library asset
   asset_details: Asset; // Full nested object from AssetSerializer
+  instance_id: string; // The physical tag/ID (e.g., P-101)
   location: string;
-  custom_fields: Record<string, any>;
+  custom_fields: Record<string, unknown>;
   created_at: string;
   updated_at: string;
-};
+}
 
 /**
  * Standard Django REST Framework paginated response structure.
  */
-export type PaginatedResponse<T> = {
+export interface PaginatedResponse<T> {
   count: number;
   next: string | null;
   previous: string | null;
   results: T[];
-};
+}
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api";
 const API_KEY = import.meta.env.VITE_API_KEY;
@@ -60,7 +64,7 @@ type FetchProjectsOptions = {
 /**
  * Helper to construct standardized headers for API requests.
  */
-function getHeadersObject() {
+function getHeadersObject(): HeadersInit {
   return {
     "Content-Type": "application/json",
     "X-API-KEY": API_KEY ?? "",
@@ -86,24 +90,19 @@ export async function fetchProjects(
 
   const url = `${API_BASE_URL}/projects/?${params.toString()}`;
 
-  try {
-    const res = await fetch(url, { headers: getHeadersObject() });
-    if (!res.ok) throw new Error(`Failed to fetch projects: ${res.status}`);
-    return (await res.json()) as PaginatedResponse<Project>;
-  } catch (err: unknown) {
-    console.error("fetchProjects error:", err);
-    throw err;
-  }
+  const res = await fetch(url, { headers: getHeadersObject() });
+  if (!res.ok) throw new Error(`Failed to fetch projects: ${res.status}`);
+  return (await res.json()) as PaginatedResponse<Project>;
 }
 
 /**
- * Fetches a single project's details
+ * Fetches a single project's details.
  */
 export async function fetchProjectDetail(id: number): Promise<Project> {
   const url = `${API_BASE_URL}/projects/${id}/`;
   const res = await fetch(url, { headers: getHeadersObject() });
-  if (!res.ok) throw new Error("Failed to fetch project detail");
-  return res.json();
+  if (!res.ok) throw new Error(`Failed to fetch project detail: ${res.status}`);
+  return (await res.json()) as Project;
 }
 
 /**
@@ -118,15 +117,11 @@ export async function fetchSnapshotsForProject(
 
   const url = `${API_BASE_URL}/snapshots/?${params.toString()}`;
 
-  try {
-    const res = await fetch(url, { headers: getHeadersObject() });
-    if (!res.ok) throw new Error(`Failed to fetch snapshots: ${res.status}`);
-    const data = (await res.json()) as PaginatedResponse<Snapshot>;
-    return data.results;
-  } catch (err: unknown) {
-    console.error("fetchSnapshotsForProject error:", err);
-    throw err;
-  }
+  const res = await fetch(url, { headers: getHeadersObject() });
+  if (!res.ok) throw new Error(`Failed to fetch snapshots: ${res.status}`);
+
+  const data = (await res.json()) as PaginatedResponse<Snapshot>;
+  return data.results;
 }
 
 /**
@@ -135,14 +130,9 @@ export async function fetchSnapshotsForProject(
 export async function fetchSnapshotDetail(id: number): Promise<Snapshot> {
   const url = `${API_BASE_URL}/snapshots/${id}/`;
 
-  try {
-    const res = await fetch(url, { headers: getHeadersObject() });
-    if (!res.ok) throw new Error(`Failed to fetch snapshot detail: ${res.status}`);
-    return (await res.json()) as Snapshot;
-  } catch (err: unknown) {
-    console.error("fetchSnapshotDetail error:", err);
-    throw err;
-  }
+  const res = await fetch(url, { headers: getHeadersObject() });
+  if (!res.ok) throw new Error(`Failed to fetch snapshot detail: ${res.status}`);
+  return (await res.json()) as Snapshot;
 }
 
 /**
@@ -153,17 +143,14 @@ export async function fetchInstancesForSnapshot(
 ): Promise<AssetInstance[]> {
   const params = new URLSearchParams();
   params.set("snapshot", String(snapshotId));
-  params.set("page_size", "500"); // Retrieve all instances for the snapshot view
+  // Requesting a high limit to avoid multiple page fetches for a single view
+  params.set("page_size", "1000");
 
   const url = `${API_BASE_URL}/instances/?${params.toString()}`;
 
-  try {
-    const res = await fetch(url, { headers: getHeadersObject() });
-    if (!res.ok) throw new Error(`Failed to fetch instances: ${res.status}`);
-    const data = (await res.json()) as PaginatedResponse<AssetInstance>;
-    return data.results;
-  } catch (err: unknown) {
-    console.error("fetchInstancesForSnapshot error:", err);
-    throw err;
-  }
+  const res = await fetch(url, { headers: getHeadersObject() });
+  if (!res.ok) throw new Error(`Failed to fetch instances: ${res.status}`);
+
+  const data = (await res.json()) as PaginatedResponse<AssetInstance>;
+  return data.results;
 }

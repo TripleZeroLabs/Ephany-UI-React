@@ -12,6 +12,7 @@ export type Asset = {
   overall_width: number | null;
   overall_depth: number | null;
   custom_fields: Record<string, unknown> | null;
+  catalog_img: string;
   files: unknown[];
   _display_units: {
     length: string;
