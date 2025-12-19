@@ -13,7 +13,7 @@ import { DetailModal } from "../components/DetailModal";
 import { usePageTitle } from "../hooks/usePageTitle.ts";
 
 // Strict types for sorting to satisfy ESLint
-type FlatSortKey = keyof AssetInstance | "asset_name" | "type_id" | "manufacturer";
+type FlatSortKey = keyof AssetInstance | "asset_name" | "type_id" | "manufacturer" | "merch_category";
 type GroupSortKey = "name" | "manufacturer_name" | "type_id" | "quantity";
 
 interface SortConfig {
@@ -35,7 +35,6 @@ export function SnapshotDetailView() {
   const [instances, setInstances] = useState<AssetInstance[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Defaults: By Type View + Quantity Sorting
   const [viewMode, setViewMode] = useState<"flat" | "grouped">("grouped");
   const [groupSortKey, setGroupSortKey] = useState<GroupSortKey>("quantity");
   const [flatSort, setFlatSort] = useState<SortConfig>({ key: "instance_id", direction: "asc" });
@@ -64,6 +63,12 @@ export function SnapshotDetailView() {
     loadData();
   }, [id]);
 
+  // --- HELPER: Format Merchandise Category ---
+  const formatCategory = (cat: unknown): string => {
+    if (typeof cat !== "string") return "—";
+    return cat.replace(/\s*\/\/\s*/g, ", ");
+  };
+
   // --- LOGIC: Grouping and Sorting ---
 
   const groupedData = useMemo(() => {
@@ -78,7 +83,7 @@ export function SnapshotDetailView() {
 
     return Object.values(groups).sort((a, b) => {
       if (groupSortKey === "quantity") {
-        return b.items.length - a.items.length; // Descending
+        return b.items.length - a.items.length;
       }
       const valA = String(a.asset[groupSortKey] || "").toLowerCase();
       const valB = String(b.asset[groupSortKey] || "").toLowerCase();
@@ -96,6 +101,10 @@ export function SnapshotDetailView() {
         case "asset_name": valA = a.asset_details.name; valB = b.asset_details.name; break;
         case "type_id": valA = a.asset_details.type_id; valB = b.asset_details.type_id; break;
         case "manufacturer": valA = a.asset_details.manufacturer_name; valB = b.asset_details.manufacturer_name; break;
+        case "merch_category":
+          valA = formatCategory(a.custom_fields?.merch_category);
+          valB = formatCategory(b.custom_fields?.merch_category);
+          break;
         default:
           valA = (a[flatSort.key as keyof AssetInstance] as string | number) || "";
           valB = (b[flatSort.key as keyof AssetInstance] as string | number) || "";
@@ -119,7 +128,7 @@ export function SnapshotDetailView() {
 
   const renderSortArrow = (key: FlatSortKey) => {
     if (flatSort.key !== key) return <span className="ml-1 opacity-20">↕</span>;
-    return <span className="ml-1 text-indigo-600">{flatSort.direction === "asc" ? "↑" : "↓"}</span>;
+    return <span className="ml-1 text-indigo-600 font-bold">{flatSort.direction === "asc" ? "↑" : "↓"}</span>;
   };
 
   const toggleExpand = (assetId: number) => {
@@ -131,14 +140,13 @@ export function SnapshotDetailView() {
     });
   };
 
-  if (loading) return <div className="p-8 text-center">Loading Snapshot...</div>;
-  if (!snapshot || !project) return <div className="p-8 text-center">Not found.</div>;
+  if (loading) return <div className="p-8 text-center font-medium">Loading Snapshot Manifest...</div>;
+  if (!snapshot || !project) return <div className="p-8 text-center">Snapshot not found.</div>;
 
   return (
     <div className="mx-auto max-w-7xl p-6">
-      {/* 1) Breadcrumbs */}
       <nav className="mb-4 text-sm text-slate-500 flex items-center gap-2">
-        <Link to="/projects" className="hover:text-indigo-600">Projects</Link>
+        <Link to="/projects" className="hover:text-indigo-600 transition-colors">Projects</Link>
         <span>/</span> <span className="text-slate-400">{project.name}</span>
         <span>/</span> <span className="font-medium text-slate-900 dark:text-slate-100">{snapshot.name}</span>
       </nav>
@@ -146,7 +154,7 @@ export function SnapshotDetailView() {
       <div className="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div>
           <h1 className="text-3xl font-bold text-slate-900 dark:text-white">{snapshot.name}</h1>
-          <p className="text-slate-500">State as of {new Date(snapshot.date).toLocaleDateString()}</p>
+          <p className="text-slate-500 font-medium">State as of {new Date(snapshot.date).toLocaleDateString()}</p>
         </div>
 
         <div className="flex flex-col sm:flex-row items-center gap-4">
@@ -156,7 +164,7 @@ export function SnapshotDetailView() {
               <select
                 value={groupSortKey}
                 onChange={(e) => setGroupSortKey(e.target.value as GroupSortKey)}
-                className="block w-full sm:w-64 text-sm rounded-md border-slate-200 py-1.5 dark:bg-slate-800 dark:text-slate-200"
+                className="block w-full sm:w-64 text-sm rounded-md border-slate-200 py-1.5 dark:bg-slate-800 dark:text-slate-200 focus:ring-indigo-500 focus:border-indigo-500"
               >
                 <option value="quantity">Quantity (Highest First)</option>
                 <option value="name">Asset Name</option>
@@ -166,7 +174,7 @@ export function SnapshotDetailView() {
             </div>
           )}
 
-          <div className="flex rounded-lg bg-slate-100 p-1 dark:bg-slate-800 border border-slate-200 w-full sm:w-auto">
+          <div className="flex rounded-lg bg-slate-100 p-1 dark:bg-slate-800 border border-slate-200 w-full sm:w-auto shadow-inner">
             <button
               onClick={() => setViewMode("grouped")}
               className={`px-6 py-1.5 text-xs font-semibold rounded-md transition-all ${viewMode === "grouped" ? "bg-white shadow-sm text-indigo-600 dark:bg-slate-700 dark:text-indigo-400" : "text-slate-500"}`}
@@ -187,25 +195,25 @@ export function SnapshotDetailView() {
         <ol className="space-y-4">
           {groupedData.map((group) => (
             <Fragment key={group.asset.id}>
-              <li className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:bg-slate-900 dark:border-slate-700">
+              <li className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:bg-slate-900 dark:border-slate-700 transition-all">
                 <div className="flex items-center justify-between p-4 bg-slate-50/50 dark:bg-slate-800/30">
                   <div className="flex items-center gap-4 cursor-pointer flex-1" onClick={() => toggleExpand(group.asset.id)}>
-                    <div className="h-12 w-12 flex-shrink-0 overflow-hidden rounded border border-slate-200 bg-white">
+                    <div className="h-12 w-12 flex-shrink-0 overflow-hidden rounded border border-slate-200 bg-white shadow-sm">
                       {group.asset.catalog_img ? (
                         <img src={group.asset.catalog_img} alt="" className="h-full w-full object-contain" />
                       ) : (
-                        <div className="flex h-full items-center justify-center text-[10px] text-slate-400">IMG</div>
+                        <div className="flex h-full items-center justify-center text-[10px] text-slate-400 font-bold uppercase">No Img</div>
                       )}
                     </div>
                     <div>
                       <div className="text-[10px] font-mono text-indigo-500 font-bold uppercase tracking-tight">{group.asset.type_id}</div>
                       <div className="font-bold text-slate-900 dark:text-white text-lg leading-tight">{group.asset.name}</div>
-                      <div className="text-xs text-slate-500">{group.asset.manufacturer_name} • {group.asset.model}</div>
+                      <div className="text-xs text-slate-500 font-medium">{group.asset.manufacturer_name} • {group.asset.model}</div>
                     </div>
                   </div>
                   <div className="flex items-center gap-4">
                     <div className="text-right px-6 border-r border-slate-200 dark:border-slate-700">
-                      <div className="text-[10px] uppercase text-slate-400 font-bold">Qty</div>
+                      <div className="text-[10px] uppercase text-slate-400 font-bold tracking-widest">Qty</div>
                       <div className="text-2xl font-black text-indigo-600 dark:text-indigo-400">{group.items.length}</div>
                     </div>
                     <button onClick={() => setSelectedAsset(group.asset)} className="rounded-md bg-white px-4 py-2 text-xs font-bold text-slate-700 shadow-sm ring-1 ring-inset ring-slate-300 hover:bg-slate-50 dark:bg-slate-800 dark:text-slate-200 dark:ring-slate-600 transition-colors">
@@ -223,15 +231,23 @@ export function SnapshotDetailView() {
                 {expandedAssetIds.has(group.asset.id) && (
                   <ul className="divide-y divide-slate-100 bg-slate-50/20 dark:bg-slate-900/50 dark:divide-slate-800">
                     {group.items.map((item) => (
-                      <li key={item.id} className="flex items-center gap-12 px-8 py-3.5 hover:bg-white dark:hover:bg-slate-800 transition-colors">
+                      <li key={item.id} className="flex items-center gap-8 px-8 py-3.5 hover:bg-white dark:hover:bg-slate-800 transition-colors">
                         <span className="text-xs font-mono font-bold text-indigo-600 dark:text-indigo-400 min-w-[140px] flex items-center gap-2">
-                          <span className="w-1.5 h-1.5 rounded-full bg-indigo-400" />
+                          <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 shadow-sm" />
                           {item.instance_id || `INST-${item.id}`}
                         </span>
-                        <span className="text-xs text-slate-600 dark:text-slate-400">
-                          <span className="uppercase text-[9px] font-bold text-slate-400 mr-2 tracking-widest">Location</span>
-                          {item.location || "—"}
-                        </span>
+
+                        <div className="flex gap-8 text-xs font-medium">
+                          <span className="text-slate-600 dark:text-slate-400">
+                            <span className="uppercase text-[9px] font-bold text-slate-400 mr-2 tracking-widest">Location</span>
+                            {item.location || "—"}
+                          </span>
+
+                          <span className="text-slate-600 dark:text-slate-400 border-l border-slate-200 dark:border-slate-700 pl-8">
+                            <span className="uppercase text-[9px] font-bold text-slate-400 mr-2 tracking-widest">Category</span>
+                            {formatCategory(item.custom_fields?.merch_category)}
+                          </span>
+                        </div>
                       </li>
                     ))}
                   </ul>
@@ -241,21 +257,21 @@ export function SnapshotDetailView() {
           ))}
         </ol>
       ) : (
-        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow dark:bg-slate-900 dark:border-slate-700">
+        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-md dark:bg-slate-900 dark:border-slate-700">
           <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
             <thead className="bg-slate-50 dark:bg-slate-800">
               <tr className="text-xs font-bold uppercase text-slate-500 tracking-wider">
                 <th onClick={() => handleFlatSort("instance_id")} className="px-6 py-4 text-left cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
-                  Instance ID {renderSortArrow("instance_id")}
+                  Tag {renderSortArrow("instance_id")}
                 </th>
                 <th onClick={() => handleFlatSort("type_id")} className="px-6 py-4 text-left cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
                   Type ID {renderSortArrow("type_id")}
                 </th>
                 <th onClick={() => handleFlatSort("asset_name")} className="px-6 py-4 text-left cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
-                  Asset Name {renderSortArrow("asset_name")}
+                  Asset {renderSortArrow("asset_name")}
                 </th>
-                <th onClick={() => handleFlatSort("manufacturer")} className="px-6 py-4 text-left cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
-                  Manufacturer {renderSortArrow("manufacturer")}
+                <th onClick={() => handleFlatSort("merch_category")} className="px-6 py-4 text-left cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+                  Category {renderSortArrow("merch_category")}
                 </th>
                 <th onClick={() => handleFlatSort("location")} className="px-6 py-4 text-left cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
                   Location {renderSortArrow("location")}
@@ -271,9 +287,14 @@ export function SnapshotDetailView() {
                 >
                   <td className="px-6 py-4 font-mono text-xs text-indigo-600 dark:text-indigo-400 font-bold">{inst.instance_id || "—"}</td>
                   <td className="px-6 py-4 font-mono text-[10px] text-slate-400">{inst.asset_details.type_id}</td>
-                  <td className="px-6 py-4 text-slate-900 dark:text-white font-medium">{inst.asset_details.name}</td>
-                  <td className="px-6 py-4 text-slate-500">{inst.asset_details.manufacturer_name}</td>
-                  <td className="px-6 py-4 text-slate-500">{inst.location || "—"}</td>
+                  <td className="px-6 py-4">
+                     <div className="text-sm font-bold text-slate-900 dark:text-white leading-tight">{inst.asset_details.name}</div>
+                     <div className="text-[10px] text-slate-500 font-medium">{inst.asset_details.manufacturer_name}</div>
+                  </td>
+                  <td className="px-6 py-4 text-xs font-medium text-slate-600 dark:text-slate-300">
+                    {formatCategory(inst.custom_fields?.merch_category)}
+                  </td>
+                  <td className="px-6 py-4 text-xs font-medium text-slate-500">{inst.location || "—"}</td>
                 </tr>
               ))}
             </tbody>
