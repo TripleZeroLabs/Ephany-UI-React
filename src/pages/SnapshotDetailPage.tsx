@@ -144,7 +144,7 @@ export function SnapshotDetailView() {
   if (!snapshot || !project) return <div className="p-8 text-center">Snapshot not found.</div>;
 
   return (
-    <div className="mx-auto max-w-7xl p-6">
+    <div className="mx-auto max-w-7xl py-3">
       <nav className="mb-4 text-sm text-slate-500 flex items-center gap-2">
         <Link to="/projects" className="hover:text-indigo-600 transition-colors">Projects</Link>
         <span>/</span> <span className="text-slate-400">{project.name}</span>
