@@ -2,15 +2,20 @@ import { useEffect, useMemo, useState } from "react";
 import {
   fetchAssets,
   fetchAllCategories,
-  fetchAllManufacturers, // <-- Import new function
+  fetchAllManufacturers,
   type Asset,
   type AssetCategory,
-  type AssetManufacturer, // <-- Import new type
+  type AssetManufacturer,
 } from "../api/assets.ts";
 import { FiltersPanel, type SelectFilterConfig } from "../components/FiltersPanel.tsx";
 import { DataTable, type ColumnDef } from "../components/DataTable.tsx";
 import { DetailModal } from "../components/DetailModal.tsx";
 import { usePageTitle } from "../hooks/usePageTitle.ts";
+
+interface SortConfig {
+  key: string;
+  direction: "asc" | "desc";
+}
 
 export function AssetsPage() {
   usePageTitle("Assets");
@@ -38,6 +43,12 @@ export function AssetsPage() {
   const [manufacturerFilter, setManufacturerFilter] = useState<string>("");
   const [categoryFilter, setCategoryFilter] = useState<string>("");
 
+  // Sort state
+  const [sort, setSort] = useState<SortConfig>({
+    key: "type_id",
+    direction: "asc",
+  });
+
   const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
 
   /**
@@ -55,9 +66,9 @@ export function AssetsPage() {
           page,
           pageSize,
           search: searchTerm.trim() || undefined,
-          // Pass BOTH filters to the server
           categoryName: categoryFilter || undefined,
           manufacturerName: manufacturerFilter || undefined,
+          ordering: `${sort.direction === "desc" ? "-" : ""}${sort.key}`,
         });
 
         if (!mounted) return;
@@ -71,12 +82,14 @@ export function AssetsPage() {
           setError("An unknown error occurred");
         }
       } finally {
-        if (!mounted) return;
-        setLoading(false);
+        // FIXED: Only update state if mounted; removed unsafe 'return'
+        if (mounted) {
+          setLoading(false);
+        }
       }
     };
 
-    load();
+    void load();
     return () => {
       mounted = false;
     };
@@ -85,7 +98,8 @@ export function AssetsPage() {
     pageSize,
     searchTerm,
     categoryFilter,
-    manufacturerFilter, // <-- Added to dependency array
+    manufacturerFilter,
+    sort,
   ]);
 
   /**
@@ -94,7 +108,6 @@ export function AssetsPage() {
   useEffect(() => {
     const loadFilters = async () => {
       try {
-        // Run fetches in parallel
         const [categories, manufacturers] = await Promise.all([
           fetchAllCategories(),
           fetchAllManufacturers(),
@@ -106,11 +119,8 @@ export function AssetsPage() {
         console.error("Failed to load filter options:", err);
       }
     };
-    loadFilters();
+    void loadFilters();
   }, []);
-
-  // Removed: Client-side calculation of manufacturers
-  // Removed: Client-side filtering logic (filteredAssets)
 
   // Handlers
   const handleSearchChange = (value: string) => {
@@ -128,8 +138,15 @@ export function AssetsPage() {
     setCategoryFilter(value);
   };
 
+  const handleSortChange = (key: string) => {
+    setSort((prev) => ({
+      key,
+      direction: prev.key === key && prev.direction === "asc" ? "desc" : "asc",
+    }));
+    setPage(1);
+  };
+
   const selectFilters: SelectFilterConfig[] = [
-    // Manufacturer filter (now using static server list)
     ...(allManufacturers.length
       ? [
           {
@@ -141,7 +158,6 @@ export function AssetsPage() {
           } as SelectFilterConfig,
         ]
       : []),
-    // Category filter (using static server list)
     ...(allCategories.length
       ? [
           {
@@ -156,16 +172,17 @@ export function AssetsPage() {
   ];
 
   const columns: ColumnDef<Asset>[] = [
-    { key: "type_id", header: "Type ID" },
-    { key: "name", header: "Name" },
-    { key: "manufacturer_name", header: "Manufacturer" },
-    { key: "model", header: "Model" },
+    { key: "type_id", header: "Type ID", sortable: true },
+    { key: "name", header: "Name", sortable: true },
+    { key: "manufacturer_name", header: "Manufacturer", sortable: true },
+    { key: "model", header: "Model", sortable: true },
     {
       key: "door_type",
       header: "Door Type",
       render: (asset) => {
         if (!asset.custom_fields) return "—";
-        const value = asset.custom_fields["door_type"] as string | undefined;
+        const fields = asset.custom_fields as Record<string, unknown>;
+        const value = fields["door_type"] as string | undefined;
         return value ?? "—";
       },
     },
@@ -254,10 +271,13 @@ export function AssetsPage() {
       <PaginationBar />
 
       <DataTable
-        rows={assets} // <-- Passed 'assets' directly now, not 'filteredAssets'
+        rows={assets}
         columns={columns}
         getRowKey={(asset) => asset.id}
         onRowClick={(asset) => setSelectedAsset(asset)}
+        sortColumn={sort.key}
+        sortDirection={sort.direction}
+        onSort={handleSortChange}
       />
 
       <div className="border-t border-slate-200 dark:border-slate-800">

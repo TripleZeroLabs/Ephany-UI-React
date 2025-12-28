@@ -42,12 +42,14 @@ export type AssetManufacturer = {
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api";
 const API_KEY = import.meta.env.VITE_API_KEY;
 
-type FetchAssetsOptions = {
+// UPDATED: Added 'ordering' to support server-side sorting
+export type FetchAssetsOptions = {
   page?: number;
   pageSize?: number;
   search?: string;
   categoryName?: string;
   manufacturerName?: string;
+  ordering?: string;
 };
 
 /**
@@ -63,8 +65,8 @@ function getHeadersObject() {
 
 /**
  * Fetches a paginated list of assets from the primary API endpoint.
- * Supports searching and server-side filtering by category and manufacturer.
- * @param opts - Options for pagination, search, and filtering.
+ * Supports searching, sorting, and server-side filtering by category and manufacturer.
+ * @param opts - Options for pagination, search, sorting, and filtering.
  * @returns A promise resolving to PaginatedResponse<Asset>.
  */
 export async function fetchAssets(
@@ -76,19 +78,23 @@ export async function fetchAssets(
   const params = new URLSearchParams();
   params.set("page", String(page));
   params.set("page_size", String(pageSize));
-  
+
   if (opts.search) {
     params.set("search", opts.search);
   }
 
   // Server-side filtering parameters
-  // Keys must match 'filterset_fields' in the Django ViewSet
   if (opts.categoryName) {
     params.set("category__name", opts.categoryName);
   }
 
   if (opts.manufacturerName) {
     params.set("manufacturer__name", opts.manufacturerName);
+  }
+
+  // UPDATED: Append ordering parameter if it exists
+  if (opts.ordering) {
+    params.set("ordering", opts.ordering);
   }
 
   const url = `${API_BASE_URL}/assets/?${params.toString()}`;
@@ -116,8 +122,6 @@ export async function fetchAssets(
 
 /**
  * Fetches a complete, non-paginated list of all AssetCategories.
- * Used for populating static filter dropdowns.
- * @returns A promise resolving to AssetCategory[].
  */
 export async function fetchAllCategories(): Promise<AssetCategory[]> {
   const url = `${API_BASE_URL}/assets/all_categories/`;
@@ -145,8 +149,6 @@ export async function fetchAllCategories(): Promise<AssetCategory[]> {
 
 /**
  * Fetches a complete, non-paginated list of all Manufacturers.
- * Used for populating static filter dropdowns.
- * @returns A promise resolving to AssetManufacturer[].
  */
 export async function fetchAllManufacturers(): Promise<AssetManufacturer[]> {
   const url = `${API_BASE_URL}/assets/all_manufacturers/`;

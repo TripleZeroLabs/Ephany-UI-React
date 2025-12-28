@@ -125,7 +125,7 @@ export function ProjectSnapshotsModal({ project, onClose }: ProjectSnapshotsModa
                       </td>
                       <td className="px-4 py-3 text-right">
                         <span className="text-xs font-medium text-indigo-600 dark:text-indigo-400 opacity-0 group-hover:opacity-100 transition-opacity">
-                          View Instances &rarr;
+                          View Snapshot &rarr;
                         </span>
                       </td>
                     </tr>

@@ -1,7 +1,20 @@
 import { type Asset } from "./assets";
 
 /**
+ * Represents a Snapshot entity.
+ */
+export interface Snapshot {
+  id: number;
+  project: number;
+  name: string;
+  date: string;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
  * Represents a Project entity.
+ * Updated: Included snapshots array to support "Latest Snapshot" display.
  */
 export interface Project {
   id: number;
@@ -12,18 +25,7 @@ export interface Project {
   created_at: string;
   updated_at: string;
   snapshot_count: number;
-}
-
-/**
- * Represents a Snapshot entity.
- */
-export interface Snapshot {
-  id: number;
-  project: number;
-  name: string;
-  date: string;
-  created_at: string;
-  updated_at: string;
+  snapshots?: Snapshot[]; // Added for nested snapshot access
 }
 
 /**
@@ -55,10 +57,12 @@ export interface PaginatedResponse<T> {
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api";
 const API_KEY = import.meta.env.VITE_API_KEY;
 
-type FetchProjectsOptions = {
+// Updated: Added ordering to options
+export type FetchProjectsOptions = {
   page?: number;
   pageSize?: number;
   search?: string;
+  ordering?: string;
 };
 
 /**
@@ -73,6 +77,7 @@ function getHeadersObject(): HeadersInit {
 
 /**
  * Fetches a paginated list of projects from the backend.
+ * Handles server-side searching, pagination, and sorting.
  */
 export async function fetchProjects(
   opts: FetchProjectsOptions = {}
@@ -86,6 +91,11 @@ export async function fetchProjects(
 
   if (opts.search) {
     params.set("search", opts.search);
+  }
+
+  // Updated: Append the ordering parameter for server-side sorting
+  if (opts.ordering) {
+    params.set("ordering", opts.ordering);
   }
 
   const url = `${API_BASE_URL}/projects/?${params.toString()}`;
@@ -143,7 +153,6 @@ export async function fetchInstancesForSnapshot(
 ): Promise<AssetInstance[]> {
   const params = new URLSearchParams();
   params.set("snapshot", String(snapshotId));
-  // Requesting a high limit to avoid multiple page fetches for a single view
   params.set("page_size", "1000");
 
   const url = `${API_BASE_URL}/instances/?${params.toString()}`;
