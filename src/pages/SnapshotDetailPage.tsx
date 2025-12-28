@@ -155,10 +155,10 @@ export function SnapshotDetailView() {
 
   const donutData = useMemo(() => tableData.slice(0, 5), [tableData]);
 
-  const displayDonutTotalLF = useMemo(() => {
-    const total = donutData.reduce((sum, item) => sum + item.value, 0);
-    return total.toFixed(1);
-  }, [donutData]);
+  // const displayDonutTotalLF = useMemo(() => {
+  //   const total = donutData.reduce((sum, item) => sum + item.value, 0);
+  //   return total.toFixed(1);
+  // }, [donutData]);
 
   const handleFlatSort = (key: FlatSortKey) => {
     setFlatSort((prev) => ({
