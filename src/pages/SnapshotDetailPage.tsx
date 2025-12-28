@@ -219,29 +219,29 @@ export function SnapshotDetailView() {
   if (!snapshot || !project) return <div className="p-12 text-center text-slate-400">Snapshot not found.</div>;
 
   return (
-    <div className="mx-auto max-w-7xl py-6 px-6 space-y-6">
+    <div className="mx-auto max-w-7xl py-3 space-y-6">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
           <nav className="mb-2 text-xs font-bold uppercase tracking-widest text-slate-400 flex items-center gap-2">
             <Link to="/projects" className="hover:text-indigo-600 transition-colors">Projects</Link>
             <span>/</span> <span>{project.name}</span>
           </nav>
-          <h1 className="text-4xl font-black text-slate-900 tracking-tight leading-none">{snapshot.name}</h1>
+          <h1 className="text-4xl text-slate-900 tracking-tight leading-none">{snapshot.name}</h1>
           <p className="text-slate-500 font-medium mt-2">{new Date(snapshot.date).toLocaleDateString()}</p>
         </div>
       </div>
 
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="bg-slate-50/50 px-6 py-3 border-b border-slate-200">
-          <h2 className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">Allocation Analytics</h2>
+          <h2 className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">Merchandise Analytics</h2>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 divide-y lg:divide-y-0 lg:divide-x divide-slate-200">
           <div className="lg:col-span-2 p-4 flex flex-col md:flex-row items-center h-[320px] gap-6">
             <div className="flex-1 h-full relative">
               <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-10">
-                <span className="text-3xl font-black text-slate-800 tracking-tight">{displayDonutTotalLF}</span>
-                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-none mt-1">Top 5 LF</span>
+                {/*<span className="text-3xl font-black text-slate-800 tracking-tight">{displayDonutTotalLF}</span>*/}
+                {/*<span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-none mt-1">Top 5 LF</span>*/}
               </div>
 
               <ResponsiveContainer width="100%" height="100%">
@@ -380,18 +380,18 @@ export function SnapshotDetailView() {
                     <div className="bg-slate-50/20 divide-y divide-slate-100">
                       {group.items.map((item) => (
                         <div key={item.id} className="flex flex-col sm:flex-row px-6 py-3.5 hover:bg-white transition-colors gap-y-2">
-                          <span className="text-xs font-mono font-bold text-indigo-600 min-w-[140px] flex items-center gap-2">
+                          <span className="font-mono font-bold text-indigo-600 min-w-[140px] flex items-center gap-2">
                             <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 shadow-sm" />
                             {item.instance_id || `INST-${item.id}`}
                           </span>
                           <div className="flex flex-1 gap-x-12">
                             <div className="flex flex-col text-left">
-                                <span className="text-[10px] font-black text-slate-300 uppercase leading-none mb-1 tracking-tighter">Location</span>
-                                <span className="text-[11px] font-bold text-slate-700 leading-none">{item.location || "—"}</span>
+                                <span className="text-[12px] font-bold text-slate-300 uppercase leading-none mb-1 tracking-tighter">Location</span>
+                                <span className="text-[14px] font-bold text-slate-700 leading-none">{item.location || "—"}</span>
                             </div>
                             <div className="flex flex-col text-left">
-                                <span className="text-[10px] font-black text-slate-300 uppercase leading-none mb-1 tracking-tighter">Category</span>
-                                <span className="text-[11px] font-bold text-slate-700 leading-none">{formatCategory(item.custom_fields?.merch_category)}</span>
+                                <span className="text-[12px] font-bold text-slate-300 uppercase leading-none mb-1 tracking-tighter">Category</span>
+                                <span className="text-[14px] font-bold text-slate-700 leading-none">{formatCategory(item.custom_fields?.merch_category)}</span>
                             </div>
                           </div>
                         </div>
