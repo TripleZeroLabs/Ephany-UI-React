@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from "react";
-import { useParams, Link, useNavigate } from "react-router-dom"; // Added useNavigate
+import { useParams, Link, useNavigate } from "react-router-dom";
 import {
     PieChart,
     Pie,
@@ -93,7 +93,6 @@ const CustomTooltip = ({ active, payload }: CustomTooltipProps) => {
 export function SnapshotDetailView() {
     usePageTitle("Project Snapshot");
 
-    // UPDATED: Destructure 'tab' from URL parameters
     const { id, tab } = useParams<{ id: string; tab?: string }>();
     const navigate = useNavigate();
 
@@ -103,7 +102,6 @@ export function SnapshotDetailView() {
     const [loading, setLoading] = useState(true);
     const [isDarkMode, setIsDarkMode] = useState(false);
 
-    // UPDATED: Derived state from URL. If no tab provided, default to 'merch'.
     const activeTab = (tab === "bom") ? "bom" : "merch";
 
     const [viewMode, setViewMode] = useState<"flat" | "grouped">("grouped");
@@ -199,17 +197,15 @@ export function SnapshotDetailView() {
         return { donutData: donutSet, totalMerchandisableLF: totalLF.toFixed(1) };
     }, [instances, topCount]);
 
-    // --- AGGREGATED BOM LOGIC ---
     const aggregatedBOM = useMemo(() => {
         const bomMap = new Map<number, BOMItem>();
 
         const addItem = (asset: Asset, qty: number, isComp: boolean) => {
             if (!asset) return;
 
-            // FIX: Robust Manufacturer Check
             let mfrName = "—";
             if (asset.manufacturer && typeof asset.manufacturer === 'object') {
-                // @ts-ignore: handling runtime type difference vs strict interface
+                // @ts-ignore
                 mfrName = asset.manufacturer.name || "—";
             } else if (asset.manufacturer_name) {
                 mfrName = asset.manufacturer_name;
@@ -315,29 +311,17 @@ export function SnapshotDetailView() {
 
     return (
         <div className="mx-auto max-w-7xl py-3 space-y-6">
-            {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 px-2">
-                <div>
-                    <nav className="mb-2 text-xs font-bold uppercase tracking-widest text-slate-400 flex items-center gap-2">
-                        <Link to="/projects" className="hover:text-indigo-600 transition-colors">Projects</Link>
-                        <span>/</span> <span>{project.name}</span>
-                    </nav>
-                    <h1 className="text-4xl text-slate-900 dark:text-white font-black tracking-tight leading-none">{snapshot.name}</h1>
-                    <p className="text-slate-500 dark:text-slate-400 font-medium mt-2">{new Date(snapshot.date).toLocaleDateString()}</p>
-                </div>
-            </div>
-
-            {/* TABS */}
-            <div className="border-b border-slate-200 dark:border-slate-800">
-                <nav className="-mb-px flex space-x-8 px-2" aria-label="Tabs">
-                    {/* UPDATED: Buttons now navigate via URL instead of setState */}
+            {/* UPDATED HEADER LAYOUT */}
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 px-2 border-b border-slate-200 dark:border-slate-800 pb-2">
+                {/* LEFT SIDE: TABS (Pushed up) */}
+                <nav className="-mb-2.5 flex space-x-6" aria-label="Tabs">
                     <button
                         onClick={() => navigate(`/snapshots/${id}/merch`)}
                         className={`${
                             activeTab === "merch"
                                 ? "border-indigo-500 text-indigo-600 dark:text-indigo-400"
-                                : "border-transparent text-slate-500"
-                        } whitespace-nowrap border-b-2 py-4 px-1 text-sm font-bold uppercase tracking-wide transition-colors`}
+                                : "border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+                        } whitespace-nowrap border-b-2 py-4 px-1 text-xs font-bold uppercase tracking-wide transition-colors`}
                     >
                         Merchandising
                     </button>
@@ -346,12 +330,24 @@ export function SnapshotDetailView() {
                         className={`${
                             activeTab === "bom"
                                 ? "border-indigo-500 text-indigo-600 dark:text-indigo-400"
-                                : "border-transparent text-slate-500"
-                        } whitespace-nowrap border-b-2 py-4 px-1 text-sm font-bold uppercase tracking-wide transition-colors`}
+                                : "border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+                        } whitespace-nowrap border-b-2 py-4 px-1 text-xs font-bold uppercase tracking-wide transition-colors`}
                     >
                         Bill of Materials
                     </button>
                 </nav>
+
+                {/* RIGHT SIDE: SNAPSHOT METADATA (Smaller Font) */}
+                <div className="text-right">
+                    <nav className="text-[10px] font-bold uppercase tracking-widest text-slate-400 flex items-center justify-end gap-2 mb-1">
+                        <Link to="/projects" className="hover:text-indigo-600 transition-colors">Projects</Link>
+                        <span>/</span> <span>{project.name}</span>
+                    </nav>
+                    <div className="flex items-baseline justify-end gap-3">
+                        <h1 className="text-2xl text-slate-800 dark:text-white font-bold tracking-tight">{snapshot.name}</h1>
+                        <span className="text-xs font-medium text-slate-400 dark:text-slate-500">{new Date(snapshot.date).toLocaleDateString()}</span>
+                    </div>
+                </div>
             </div>
 
             {/* TAB CONTENT: MERCHANDISING */}
