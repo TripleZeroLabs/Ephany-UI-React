@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { type ReactNode, useState } from "react";
 import "./DetailModal.css";
 
 type DetailModalProps<T> = {
@@ -9,6 +9,9 @@ type DetailModalProps<T> = {
 };
 
 export function DetailModal<T>({ open, item, onClose, title }: DetailModalProps<T>) {
+  // State for handling nested modal recursion
+  const [subItem, setSubItem] = useState<any | null>(null);
+
   if (!open || !item) return null;
 
   const anyItem = item as any;
@@ -74,7 +77,6 @@ export function DetailModal<T>({ open, item, onClose, title }: DetailModalProps<
     if (typeof value === "string") {
       const trimmed = value.trim();
 
-      // 1. CHECK FOR URL
       if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
         return (
           <a
@@ -88,7 +90,6 @@ export function DetailModal<T>({ open, item, onClose, title }: DetailModalProps<
         );
       }
 
-      // 2. CHECK FOR NUMERIC STRING
       const numeric = trimmed !== "" && !Number.isNaN(Number(trimmed));
       if (numeric) {
         const rounded = roundToHundredths(Number(trimmed));
@@ -100,8 +101,6 @@ export function DetailModal<T>({ open, item, onClose, title }: DetailModalProps<
         );
       }
 
-      // 3. REGULAR STRING (UPDATED FIX)
-      // 'whitespace-pre-wrap' preserves newlines (\n) and wraps text
       return <span className="break-words whitespace-pre-wrap">{value}</span>;
     }
     return null;
@@ -126,11 +125,11 @@ export function DetailModal<T>({ open, item, onClose, title }: DetailModalProps<
 
   const renderSection = (
     heading: string,
-    rows: Array<{ key: string; value: ReactNode }>,
-    emptyText: string = "No data"
+    rows: Array<{ key: string; value: ReactNode }>
   ) => {
+    // Hide completely if no rows
     if (!rows || rows.length === 0) {
-      return <span className="text-slate-400">{emptyText}</span>;
+      return null;
     }
     return (
       <div className="space-y-2">
@@ -157,17 +156,83 @@ export function DetailModal<T>({ open, item, onClose, title }: DetailModalProps<
 
   const renderCustomFieldsSection = (raw: any) => {
     const obj = normalizeObjectLike(raw);
-    if (!obj) return <span className="text-slate-400">—</span>;
+
+    // Hide completely if empty or null
+    if (!obj || (typeof obj === 'object' && Object.keys(obj).length === 0)) return null;
+
     if (typeof obj === "string") {
-      return <pre className="whitespace-pre-wrap break-words text-[11px] text-slate-700 dark:text-slate-200">{obj}</pre>;
+      return (
+        <div className="space-y-2">
+            <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Custom Fields</div>
+            <pre className="whitespace-pre-wrap break-words text-[11px] text-slate-700 dark:text-slate-200">{obj}</pre>
+        </div>
+      );
     }
-    if (typeof obj !== "object") return <span className="text-slate-400">—</span>;
 
     const rows = Object.entries(obj).map(([k, v]) => ({
       key: k,
       value: formatValue(v, k),
     }));
-    return renderSection("Custom Fields", rows, "No custom fields");
+    return renderSection("Custom Fields", rows);
+  };
+
+  // --- Components Table Renderer ---
+  const renderComponents = () => {
+    const components = anyItem.components;
+    if (!Array.isArray(components) || components.length === 0) return null;
+
+    return (
+        <div className="mt-6 space-y-3">
+            <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                Components
+            </div>
+            <div className="overflow-hidden rounded-lg border border-slate-200 dark:border-slate-700">
+                <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
+                    <thead className="bg-slate-50 dark:bg-slate-800">
+                        <tr>
+                            <th className="px-3 py-2 text-left text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Name</th>
+                            <th className="px-3 py-2 text-left text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Manufacturer</th>
+                            <th className="px-3 py-2 text-left text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Model</th>
+                            <th className="px-3 py-2 text-center text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Required Qty</th>
+                            <th className="px-3 py-2 text-left text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Type ID</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-200 bg-white dark:divide-slate-700 dark:bg-slate-900">
+                        {components.map((comp: any, idx: number) => {
+                            // Extract child asset (handle nesting if present)
+                            const asset = comp.child_asset || comp;
+                            const mfr = typeof asset.manufacturer === 'object' ? asset.manufacturer?.name : asset.manufacturer_name;
+                            const qty = comp.quantity_required ?? 1;
+
+                            return (
+                                <tr
+                                    key={asset.id || idx}
+                                    onClick={() => setSubItem(asset)}
+                                    className="cursor-pointer hover:bg-indigo-50 dark:hover:bg-slate-800 transition-colors"
+                                >
+                                    <td className="px-3 py-2 text-xs font-medium text-slate-900 dark:text-white">
+                                        {asset.name || "—"}
+                                    </td>
+                                    <td className="px-3 py-2 text-xs text-slate-600 dark:text-slate-300">
+                                        {mfr || "—"}
+                                    </td>
+                                    <td className="px-3 py-2 text-xs text-slate-600 dark:text-slate-300">
+                                        {asset.model || "—"}
+                                    </td>
+                                    <td className="px-3 py-2 text-xs text-center font-bold text-slate-600 dark:text-slate-300">
+                                        {qty}
+                                    </td>
+                                    <td className="px-3 py-2 text-xs font-mono text-indigo-600 dark:text-indigo-400">
+                                        {asset.type_id || "—"}
+                                    </td>
+                                </tr>
+                            );
+                        })}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    );
   };
 
   const fileNameFromUrl = (url: string) => {
@@ -241,63 +306,80 @@ export function DetailModal<T>({ open, item, onClose, title }: DetailModalProps<
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-      <div className="fixed inset-0 bg-gray-900 bg-opacity-50 transition-opacity backdrop-blur-sm" onClick={onClose} aria-hidden="true" />
-      <div className="relative flex w-full max-w-4xl flex-col rounded-lg bg-white shadow-2xl dark:bg-slate-900 max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4 dark:border-slate-700">
-          <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">{title || "Details"}</h3>
-          <button onClick={onClose} className="rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-300 transition-colors">
-            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-          </button>
-        </div>
-        <div className="flex-1 overflow-y-auto p-6">
-          <div className="flex flex-col gap-8 md:flex-row">
-            <div className="order-2 flex-1 md:order-1 space-y-8">
-              <div className="space-y-2">
-                 <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Core Attributes</div>
-                <table className="w-full table-fixed border-collapse text-xs">
-                  <tbody>
-                    {entries
-                      .filter(([key]) => {
-                        const lowerKey = key.toLowerCase();
-                        if (['id', 'custom_fields', 'files', 'catalog_img', 'image'].includes(lowerKey) || lowerKey.includes('display_units')) return false;
-                        if ((lowerKey === "manufacturer" || lowerKey === "manufacturer_id") && (anyItem.manufacturer_name || anyItem.manufacturer_display)) return false;
-                        if ((lowerKey === "category" || lowerKey === "category_id") && (anyItem.category_name || anyItem.category_display)) return false;
-                        return true;
-                      })
-                      .map(([key, value]) => {
-                        let labelKey = key;
-                        if (key === "manufacturer_name") labelKey = "manufacturer";
-                        if (key === "category_name") labelKey = "category";
-                        return (
-                          <tr key={key} className="border-b border-slate-100 last:border-0 dark:border-slate-800">
-                            <td className={`${KEY_COL} py-2 pr-3 align-top font-medium text-slate-600 dark:text-slate-300`}>
-                              <span className="block break-words whitespace-normal">{formatKey(labelKey)}</span>
-                            </td>
-                            <td className="py-2 text-slate-900 dark:text-slate-100 break-words whitespace-normal">
-                              {formatValue(value, labelKey)}
-                            </td>
-                          </tr>
-                        );
-                      })
-                    }
-                  </tbody>
-                </table>
+    <>
+      <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-gray-900 bg-opacity-50 transition-opacity backdrop-blur-sm" onClick={onClose} aria-hidden="true" />
+        <div className="relative flex w-full max-w-4xl flex-col rounded-lg bg-white shadow-2xl dark:bg-slate-900 max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4 dark:border-slate-700">
+            <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">{title || "Details"}</h3>
+            <button onClick={onClose} className="rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-300 transition-colors">
+              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
+          </div>
+          <div className="flex-1 overflow-y-auto p-6">
+            <div className="flex flex-col gap-8 md:flex-row">
+              <div className="order-2 flex-1 md:order-1 space-y-8">
+                <div className="space-y-2">
+                   <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Core Attributes</div>
+                  <table className="w-full table-fixed border-collapse text-xs">
+                    <tbody>
+                      {entries
+                        .filter(([key]) => {
+                          const lowerKey = key.toLowerCase();
+                          // Exclude specific fields AND components
+                          if (['id', 'custom_fields', 'files', 'catalog_img', 'image', 'components'].includes(lowerKey) || lowerKey.includes('display_units')) return false;
+                          if ((lowerKey === "manufacturer" || lowerKey === "manufacturer_id") && (anyItem.manufacturer_name || anyItem.manufacturer_display)) return false;
+                          if ((lowerKey === "category" || lowerKey === "category_id") && (anyItem.category_name || anyItem.category_display)) return false;
+                          return true;
+                        })
+                        .map(([key, value]) => {
+                          let labelKey = key;
+                          if (key === "manufacturer_name") labelKey = "manufacturer";
+                          if (key === "category_name") labelKey = "category";
+                          return (
+                            <tr key={key} className="border-b border-slate-100 last:border-0 dark:border-slate-800">
+                              <td className={`${KEY_COL} py-2 pr-3 align-top font-medium text-slate-600 dark:text-slate-300`}>
+                                <span className="block break-words whitespace-normal">{formatKey(labelKey)}</span>
+                              </td>
+                              <td className="py-2 text-slate-900 dark:text-slate-100 break-words whitespace-normal">
+                                {formatValue(value, labelKey)}
+                              </td>
+                            </tr>
+                          );
+                        })
+                      }
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Render Components Section */}
+                {renderComponents()}
+
+                {"custom_fields" in anyItem && renderCustomFieldsSection(anyItem.custom_fields)}
               </div>
-              {"custom_fields" in anyItem && renderCustomFieldsSection(anyItem.custom_fields)}
-            </div>
-            <div className="order-1 w-full md:order-2 md:w-1/3 md:min-w-[250px]">
-              <div className="sticky top-0">
-                {renderImage()}
-                {renderSimpleFiles()}
+              <div className="order-1 w-full md:order-2 md:w-1/3 md:min-w-[250px]">
+                <div className="sticky top-0">
+                  {renderImage()}
+                  {renderSimpleFiles()}
+                </div>
               </div>
             </div>
           </div>
-        </div>
-        <div className="flex justify-end border-t border-slate-200 bg-slate-50 px-6 py-4 dark:border-slate-700 dark:bg-slate-800/50 rounded-b-lg">
-          <button onClick={onClose} className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600 transition-colors">Close</button>
+          <div className="flex justify-end border-t border-slate-200 bg-slate-50 px-6 py-4 dark:border-slate-700 dark:bg-slate-800/50 rounded-b-lg">
+            <button onClick={onClose} className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600 transition-colors">Close</button>
+          </div>
         </div>
       </div>
-    </div>
+
+      {/* Recursive Modal for Sub-Items */}
+      {subItem && (
+        <DetailModal
+          open={!!subItem}
+          item={subItem}
+          title={subItem.name}
+          onClose={() => setSubItem(null)}
+        />
+      )}
+    </>
   );
 }

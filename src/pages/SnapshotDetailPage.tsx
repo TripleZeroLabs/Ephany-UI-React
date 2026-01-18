@@ -18,7 +18,6 @@ import {
 import { type Asset } from "../api/assets";
 import { DetailModal } from "../components/DetailModal";
 import { usePageTitle } from "../hooks/usePageTitle.ts";
-import React from "react";
 
 // --- TYPES ---
 type FlatSortKey = keyof AssetInstance | "asset_name" | "type_id" | "manufacturer" | "merch_category";
@@ -33,6 +32,10 @@ interface BOMItem {
     model: string;
     totalQuantity: number;
     isComponent: boolean;
+    // Track which parents use this component
+    contributingParents: Set<string>;
+    // NEW: Store full asset to enable opening the DetailModal
+    originalAsset: Asset;
 }
 
 interface SortConfig {
@@ -197,16 +200,18 @@ export function SnapshotDetailView() {
         return { donutData: donutSet, totalMerchandisableLF: totalLF.toFixed(1) };
     }, [instances, topCount]);
 
+    // --- AGGREGATED BOM LOGIC ---
     const aggregatedBOM = useMemo(() => {
         const bomMap = new Map<number, BOMItem>();
 
-        const addItem = (asset: Asset, qty: number, isComp: boolean) => {
+        const addItem = (asset: Asset, qty: number, isComp: boolean, parentName?: string) => {
             if (!asset) return;
 
             let mfrName = "—";
-            if (asset.manufacturer && typeof asset.manufacturer === 'object') {
-                // @ts-ignore
-                mfrName = asset.manufacturer.name || "—";
+            // Safe check for nested manufacturer object vs flat string ID
+            const mfrRaw = asset.manufacturer as unknown;
+            if (mfrRaw && typeof mfrRaw === 'object' && 'name' in (mfrRaw as Record<string, unknown>)) {
+                mfrName = (mfrRaw as { name: string }).name;
             } else if (asset.manufacturer_name) {
                 mfrName = asset.manufacturer_name;
             }
@@ -214,7 +219,13 @@ export function SnapshotDetailView() {
             const existing = bomMap.get(asset.id);
             if (existing) {
                 existing.totalQuantity += qty;
+                if (parentName) {
+                    existing.contributingParents.add(parentName);
+                }
             } else {
+                const parents = new Set<string>();
+                if (parentName) parents.add(parentName);
+
                 bomMap.set(asset.id, {
                     assetId: asset.id,
                     typeId: asset.type_id || "—",
@@ -222,7 +233,9 @@ export function SnapshotDetailView() {
                     manufacturer: mfrName,
                     model: asset.model || "—",
                     totalQuantity: qty,
-                    isComponent: isComp
+                    isComponent: isComp,
+                    contributingParents: parents,
+                    originalAsset: asset // Stored for the modal
                 });
             }
         };
@@ -236,7 +249,7 @@ export function SnapshotDetailView() {
             if (parent.components) {
                 parent.components.forEach(comp => {
                     if (!comp.can_add_per_instance && comp.child_asset) {
-                        addItem(comp.child_asset, comp.quantity_required, true);
+                        addItem(comp.child_asset, comp.quantity_required, true, parent.name);
                     }
                 });
             }
@@ -245,13 +258,18 @@ export function SnapshotDetailView() {
                 inst.optional_components.forEach(opt => {
                     const child = opt.asset_component?.child_asset;
                     if (child) {
-                        addItem(child, opt.quantity, true);
+                        addItem(child, opt.quantity, true, parent.name);
                     }
                 });
             }
         });
 
-        return Array.from(bomMap.values()).sort((a, b) => a.typeId.localeCompare(b.typeId));
+        return Array.from(bomMap.values()).sort((a, b) => {
+            if (a.isComponent === b.isComponent) {
+                return a.typeId.localeCompare(b.typeId);
+            }
+            return a.isComponent ? 1 : -1;
+        });
     }, [instances]);
 
     const handleFlatSort = (key: FlatSortKey) => {
@@ -311,9 +329,8 @@ export function SnapshotDetailView() {
 
     return (
         <div className="mx-auto max-w-7xl py-3 space-y-6">
-            {/* UPDATED HEADER LAYOUT */}
+            {/* Header */}
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 px-2 border-b border-slate-200 dark:border-slate-800 pb-2">
-                {/* LEFT SIDE: TABS (Pushed up) */}
                 <nav className="-mb-2.5 flex space-x-6" aria-label="Tabs">
                     <button
                         onClick={() => navigate(`/snapshots/${id}/merch`)}
@@ -337,7 +354,6 @@ export function SnapshotDetailView() {
                     </button>
                 </nav>
 
-                {/* RIGHT SIDE: SNAPSHOT METADATA (Smaller Font) */}
                 <div className="text-right">
                     <nav className="text-[10px] font-bold uppercase tracking-widest text-slate-400 flex items-center justify-end gap-2 mb-1">
                         <Link to="/projects" className="hover:text-indigo-600 transition-colors">Projects</Link>
@@ -491,11 +507,12 @@ export function SnapshotDetailView() {
                         <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-800">
                             <thead className="bg-slate-50 dark:bg-slate-800/50">
                                 <tr className="text-xs font-bold uppercase text-slate-400 dark:text-slate-500 tracking-widest">
-                                    <th className="px-6 py-4 text-left w-32">Type ID</th>
+                                    <th className="px-6 py-4 text-left w-16">Role</th>
                                     <th className="px-6 py-4 text-center w-24">Total Qty</th>
                                     <th className="px-6 py-4 text-left">Asset Name</th>
                                     <th className="px-6 py-4 text-left">Manufacturer</th>
                                     <th className="px-6 py-4 text-left">Model</th>
+                                    <th className="px-6 py-4 text-left w-32">Type ID</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100 dark:divide-slate-800 bg-white dark:bg-slate-900">
@@ -505,8 +522,17 @@ export function SnapshotDetailView() {
                                             key={`${item.assetId}-${item.typeId}`}
                                             className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
                                         >
-                                            <td className="px-6 py-3 font-mono text-xs font-bold text-indigo-600 dark:text-indigo-400">
-                                                {item.typeId}
+                                            <td className="px-1 py-3 text-center">
+                                                <span
+                                                    className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-white text-[10px] font-bold cursor-help transition-colors
+                                                    ${item.isComponent
+                                                        ? "bg-blue-400"
+                                                        : "bg-green-500"
+                                                    }`}
+                                                    title={item.isComponent ? `Component of: \n• ${Array.from(item.contributingParents).join("\n• ")}` : "Parent Asset"}
+                                                >
+                                                    {item.isComponent ? "C" : "P"}
+                                                </span>
                                             </td>
                                             <td className="px-6 py-3 text-center">
                                                 <span className="inline-flex items-center justify-center min-w-[2rem] px-2 py-1 bg-slate-100 dark:bg-slate-800 rounded-md text-sm font-black text-slate-700 dark:text-slate-300">
@@ -514,7 +540,7 @@ export function SnapshotDetailView() {
                                                 </span>
                                             </td>
                                             <td className="px-6 py-3">
-                                                <div className="text-sm font-bold text-slate-900 dark:text-white">
+                                                <div className="text-sm font-medium text-slate-900 dark:text-white">
                                                     {item.name}
                                                 </div>
                                             </td>
@@ -524,11 +550,19 @@ export function SnapshotDetailView() {
                                             <td className="px-6 py-3 text-xs text-slate-600 dark:text-slate-400 font-mono">
                                                 {item.model}
                                             </td>
+                                            <td className="px-6 py-3 font-mono text-xs dark:text-white">
+                                                <button
+                                                    onClick={() => setSelectedAsset(item.originalAsset)}
+                                                    className="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300 hover:underline cursor-pointer font-bold focus:outline-none"
+                                                >
+                                                    {item.typeId}
+                                                </button>
+                                            </td>
                                         </tr>
                                     ))
                                 ) : (
                                     <tr>
-                                        <td colSpan={5} className="px-6 py-12 text-center text-slate-400 dark:text-slate-500 text-sm italic">
+                                        <td colSpan={6} className="px-6 py-12 text-center text-slate-400 dark:text-slate-500 text-sm italic">
                                             No assets found in this snapshot.
                                         </td>
                                     </tr>
