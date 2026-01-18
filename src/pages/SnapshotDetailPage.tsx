@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom"; // Added useNavigate
 import {
     PieChart,
     Pie,
@@ -18,6 +18,7 @@ import {
 import { type Asset } from "../api/assets";
 import { DetailModal } from "../components/DetailModal";
 import { usePageTitle } from "../hooks/usePageTitle.ts";
+import React from "react";
 
 // --- TYPES ---
 type FlatSortKey = keyof AssetInstance | "asset_name" | "type_id" | "manufacturer" | "merch_category";
@@ -31,7 +32,7 @@ interface BOMItem {
     manufacturer: string;
     model: string;
     totalQuantity: number;
-    isComponent: boolean; // Helper to style components differently if needed
+    isComponent: boolean;
 }
 
 interface SortConfig {
@@ -91,7 +92,10 @@ const CustomTooltip = ({ active, payload }: CustomTooltipProps) => {
 
 export function SnapshotDetailView() {
     usePageTitle("Project Snapshot");
-    const { id } = useParams<{ id: string }>();
+
+    // UPDATED: Destructure 'tab' from URL parameters
+    const { id, tab } = useParams<{ id: string; tab?: string }>();
+    const navigate = useNavigate();
 
     const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
     const [project, setProject] = useState<Project | null>(null);
@@ -99,7 +103,9 @@ export function SnapshotDetailView() {
     const [loading, setLoading] = useState(true);
     const [isDarkMode, setIsDarkMode] = useState(false);
 
-    const [activeTab, setActiveTab] = useState<"merch" | "bom">("merch");
+    // UPDATED: Derived state from URL. If no tab provided, default to 'merch'.
+    const activeTab = (tab === "bom") ? "bom" : "merch";
+
     const [viewMode, setViewMode] = useState<"flat" | "grouped">("grouped");
     const [groupSortKey] = useState<GroupSortKey>("quantity");
     const [flatSort, setFlatSort] = useState<SortConfig>({ key: "instance_id", direction: "asc" });
@@ -194,16 +200,13 @@ export function SnapshotDetailView() {
     }, [instances, topCount]);
 
     // --- AGGREGATED BOM LOGIC ---
-const aggregatedBOM = useMemo(() => {
+    const aggregatedBOM = useMemo(() => {
         const bomMap = new Map<number, BOMItem>();
 
         const addItem = (asset: Asset, qty: number, isComp: boolean) => {
             if (!asset) return;
 
             // FIX: Robust Manufacturer Check
-            // 1. Try the nested object (NestedAssetSerializer format)
-            // 2. Try the flat string (AssetSerializer format)
-            // 3. Fallback to placeholder
             let mfrName = "—";
             if (asset.manufacturer && typeof asset.manufacturer === 'object') {
                 // @ts-ignore: handling runtime type difference vs strict interface
@@ -220,7 +223,7 @@ const aggregatedBOM = useMemo(() => {
                     assetId: asset.id,
                     typeId: asset.type_id || "—",
                     name: asset.name,
-                    manufacturer: mfrName, // <--- Using the resolved name
+                    manufacturer: mfrName,
                     model: asset.model || "—",
                     totalQuantity: qty,
                     isComponent: isComp
@@ -228,7 +231,6 @@ const aggregatedBOM = useMemo(() => {
             }
         };
 
-        // ... rest of the loop logic (instances.forEach) remains exactly the same ...
         instances.forEach(inst => {
             const parent = inst.asset_details;
             if (!parent) return;
@@ -328,10 +330,25 @@ const aggregatedBOM = useMemo(() => {
             {/* TABS */}
             <div className="border-b border-slate-200 dark:border-slate-800">
                 <nav className="-mb-px flex space-x-8 px-2" aria-label="Tabs">
-                    <button onClick={() => setActiveTab("merch")} className={`${activeTab === "merch" ? "border-indigo-500 text-indigo-600 dark:text-indigo-400" : "border-transparent text-slate-500"} whitespace-nowrap border-b-2 py-4 px-1 text-sm font-bold uppercase tracking-wide transition-colors`}>
+                    {/* UPDATED: Buttons now navigate via URL instead of setState */}
+                    <button
+                        onClick={() => navigate(`/snapshots/${id}/merch`)}
+                        className={`${
+                            activeTab === "merch"
+                                ? "border-indigo-500 text-indigo-600 dark:text-indigo-400"
+                                : "border-transparent text-slate-500"
+                        } whitespace-nowrap border-b-2 py-4 px-1 text-sm font-bold uppercase tracking-wide transition-colors`}
+                    >
                         Merchandising
                     </button>
-                    <button onClick={() => setActiveTab("bom")} className={`${activeTab === "bom" ? "border-indigo-500 text-indigo-600 dark:text-indigo-400" : "border-transparent text-slate-500"} whitespace-nowrap border-b-2 py-4 px-1 text-sm font-bold uppercase tracking-wide transition-colors`}>
+                    <button
+                        onClick={() => navigate(`/snapshots/${id}/bom`)}
+                        className={`${
+                            activeTab === "bom"
+                                ? "border-indigo-500 text-indigo-600 dark:text-indigo-400"
+                                : "border-transparent text-slate-500"
+                        } whitespace-nowrap border-b-2 py-4 px-1 text-sm font-bold uppercase tracking-wide transition-colors`}
+                    >
                         Bill of Materials
                     </button>
                 </nav>
