@@ -1,5 +1,5 @@
-import {useEffect, useState, useMemo} from "react";
-import {useParams, Link} from "react-router-dom";
+import { useEffect, useState, useMemo } from "react";
+import { useParams, Link } from "react-router-dom";
 import {
     PieChart,
     Pie,
@@ -15,14 +15,24 @@ import {
     fetchInstancesForSnapshot,
     fetchProjectDetail,
 } from "../api/projects";
-import {type Asset} from "../api/assets";
-import {DetailModal} from "../components/DetailModal";
-import {usePageTitle} from "../hooks/usePageTitle.ts";
+import { type Asset } from "../api/assets";
+import { DetailModal } from "../components/DetailModal";
+import { usePageTitle } from "../hooks/usePageTitle.ts";
 
 // --- TYPES ---
 type FlatSortKey = keyof AssetInstance | "asset_name" | "type_id" | "manufacturer" | "merch_category";
 type GroupSortKey = "name" | "manufacturer_name" | "type_id" | "quantity";
 type TopRange = 5 | 10 | 25;
+
+interface BOMItem {
+    assetId: number;
+    typeId: string;
+    name: string;
+    manufacturer: string;
+    model: string;
+    totalQuantity: number;
+    isComponent: boolean; // Helper to style components differently if needed
+}
 
 interface SortConfig {
     key: FlatSortKey;
@@ -48,7 +58,6 @@ interface CustomTooltipProps {
     }>;
 }
 
-// Expanded palette for up to 25 items + 1 "Other"
 const PALETTE_LIGHT = [
     "#1e1b4b", "#312e81", "#3730a3", "#4338ca", "#4f46e5",
     "#6366f1", "#818cf8", "#a5b4fc", "#c7d2fe", "#bfdbfe",
@@ -62,7 +71,7 @@ const PALETTE_DARK = [
     "#f1f5f9", "#f8fafc", "#ffffff", "#e0e7ff", "#c7d2fe"
 ];
 
-const CustomTooltip = ({active, payload}: CustomTooltipProps) => {
+const CustomTooltip = ({ active, payload }: CustomTooltipProps) => {
     if (active && payload && payload.length > 0) {
         const data = payload[0].payload;
         return (
@@ -82,7 +91,7 @@ const CustomTooltip = ({active, payload}: CustomTooltipProps) => {
 
 export function SnapshotDetailView() {
     usePageTitle("Project Snapshot");
-    const {id} = useParams<{ id: string }>();
+    const { id } = useParams<{ id: string }>();
 
     const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
     const [project, setProject] = useState<Project | null>(null);
@@ -90,11 +99,12 @@ export function SnapshotDetailView() {
     const [loading, setLoading] = useState(true);
     const [isDarkMode, setIsDarkMode] = useState(false);
 
+    const [activeTab, setActiveTab] = useState<"merch" | "bom">("merch");
     const [viewMode, setViewMode] = useState<"flat" | "grouped">("grouped");
     const [groupSortKey] = useState<GroupSortKey>("quantity");
-    const [flatSort, setFlatSort] = useState<SortConfig>({key: "instance_id", direction: "asc"});
-    const [topCount, setTopCount] = useState<TopRange>(5);
+    const [flatSort, setFlatSort] = useState<SortConfig>({ key: "instance_id", direction: "asc" });
 
+    const [topCount, setTopCount] = useState<TopRange>(5);
     const [expandedAssetIds, setExpandedAssetIds] = useState<Set<number>>(new Set());
     const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
 
@@ -127,7 +137,7 @@ export function SnapshotDetailView() {
                 if (isMounted) setLoading(false);
             }
         };
-        loadData().catch(console.error);
+        void loadData();
         return () => { isMounted = false; };
     }, [id]);
 
@@ -180,11 +190,71 @@ export function SnapshotDetailView() {
             });
         }
 
-        return {
-            donutData: donutSet,
-            totalMerchandisableLF: totalLF.toFixed(1)
-        };
+        return { donutData: donutSet, totalMerchandisableLF: totalLF.toFixed(1) };
     }, [instances, topCount]);
+
+    // --- AGGREGATED BOM LOGIC ---
+const aggregatedBOM = useMemo(() => {
+        const bomMap = new Map<number, BOMItem>();
+
+        const addItem = (asset: Asset, qty: number, isComp: boolean) => {
+            if (!asset) return;
+
+            // FIX: Robust Manufacturer Check
+            // 1. Try the nested object (NestedAssetSerializer format)
+            // 2. Try the flat string (AssetSerializer format)
+            // 3. Fallback to placeholder
+            let mfrName = "—";
+            if (asset.manufacturer && typeof asset.manufacturer === 'object') {
+                // @ts-ignore: handling runtime type difference vs strict interface
+                mfrName = asset.manufacturer.name || "—";
+            } else if (asset.manufacturer_name) {
+                mfrName = asset.manufacturer_name;
+            }
+
+            const existing = bomMap.get(asset.id);
+            if (existing) {
+                existing.totalQuantity += qty;
+            } else {
+                bomMap.set(asset.id, {
+                    assetId: asset.id,
+                    typeId: asset.type_id || "—",
+                    name: asset.name,
+                    manufacturer: mfrName, // <--- Using the resolved name
+                    model: asset.model || "—",
+                    totalQuantity: qty,
+                    isComponent: isComp
+                });
+            }
+        };
+
+        // ... rest of the loop logic (instances.forEach) remains exactly the same ...
+        instances.forEach(inst => {
+            const parent = inst.asset_details;
+            if (!parent) return;
+
+            addItem(parent, 1, false);
+
+            if (parent.components) {
+                parent.components.forEach(comp => {
+                    if (!comp.can_add_per_instance && comp.child_asset) {
+                        addItem(comp.child_asset, comp.quantity_required, true);
+                    }
+                });
+            }
+
+            if (inst.optional_components) {
+                inst.optional_components.forEach(opt => {
+                    const child = opt.asset_component?.child_asset;
+                    if (child) {
+                        addItem(child, opt.quantity, true);
+                    }
+                });
+            }
+        });
+
+        return Array.from(bomMap.values()).sort((a, b) => a.typeId.localeCompare(b.typeId));
+    }, [instances]);
 
     const handleFlatSort = (key: FlatSortKey) => {
         setFlatSort((prev) => ({
@@ -201,30 +271,33 @@ export function SnapshotDetailView() {
     const groupedData = useMemo(() => {
         const groups: Record<number, AssetGroup> = {};
         instances.forEach((inst) => {
+            if (!inst.asset_details) return;
             const assetId = inst.asset_details.id;
-            if (!groups[assetId]) groups[assetId] = {asset: inst.asset_details, items: []};
+            if (!groups[assetId]) groups[assetId] = { asset: inst.asset_details, items: [] };
             groups[assetId].items.push(inst);
         });
 
         return Object.values(groups).sort((a, b) => {
             if (groupSortKey === "quantity") return b.items.length - a.items.length;
-            const valA = String(a.asset[groupSortKey] || "").toLowerCase();
-            const valB = String(b.asset[groupSortKey] || "").toLowerCase();
+            const valA = String(a.asset[groupSortKey as keyof Asset] || "").toLowerCase();
+            const valB = String(b.asset[groupSortKey as keyof Asset] || "").toLowerCase();
             return valA.localeCompare(valB);
         });
     }, [instances, groupSortKey]);
 
     const sortedInstances = useMemo(() => {
-        const items = [...instances];
+        const items = instances.filter((i): i is AssetInstance & { asset_details: Asset } => !!i.asset_details);
         items.sort((a, b) => {
-            // FIX: Removed redundant initializers to resolve "Variable initializer is redundant" warnings
-            let valA: string | number;
-            let valB: string | number;
+            let valA: string | number = "";
+            let valB: string | number = "";
             switch (flatSort.key) {
                 case "asset_name": valA = a.asset_details.name; valB = b.asset_details.name; break;
                 case "type_id": valA = a.asset_details.type_id; valB = b.asset_details.type_id; break;
+                case "manufacturer": valA = a.asset_details.manufacturer_name; valB = b.asset_details.manufacturer_name; break;
                 case "merch_category": valA = formatCategory(a.custom_fields?.merch_category); valB = formatCategory(b.custom_fields?.merch_category); break;
-                default: valA = (a[flatSort.key as keyof AssetInstance] as string | number) || ""; valB = (b[flatSort.key as keyof AssetInstance] as string | number) || "";
+                default:
+                    valA = (a[flatSort.key as keyof AssetInstance] as string | number) || "";
+                    valB = (b[flatSort.key as keyof AssetInstance] as string | number) || "";
             }
             const strA = String(valA).toLowerCase();
             const strB = String(valB).toLowerCase();
@@ -252,200 +325,209 @@ export function SnapshotDetailView() {
                 </div>
             </div>
 
-            {/* MERCHANDISING DASHBOARD - Full Width Layout */}
-            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden transition-colors">
-                <div className="bg-slate-50/50 dark:bg-slate-800/50 px-6 py-3 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center">
-                    <h2 className="text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">Merchandising Analysis</h2>
-
-                    <div className="flex bg-slate-200/50 dark:bg-slate-800 p-0.5 rounded-lg shadow-inner">
-                        {[5, 10, 25].map((range) => (
-                            <button
-                                key={range}
-                                onClick={() => setTopCount(range as TopRange)}
-                                className={`px-4 py-1 text-xs font-bold uppercase transition-all rounded-md ${topCount === range ? 'bg-white dark:bg-slate-600 text-indigo-600 dark:text-indigo-300 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-                            >
-                                Top {range}
-                            </button>
-                        ))}
-                    </div>
-                </div>
-
-                <div className="p-6 flex flex-col lg:flex-row items-center justify-center gap-12 min-h-[320px]">
-                    {/* CHART AREA */}
-                    <div className="w-full lg:w-1/3 h-[300px] relative">
-                        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-10">
-                            <span className="text-4xl font-black text-slate-800 dark:text-slate-100 tracking-tight leading-none">
-                                {totalMerchandisableLF}
-                            </span>
-                            <span className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mt-1">Total LF</span>
-                        </div>
-                        <ResponsiveContainer width="100%" height="100%">
-                            <PieChart>
-                                <Pie
-                                    data={donutData}
-                                    cx="50%"
-                                    cy="50%"
-                                    innerRadius={80}
-                                    outerRadius={120}
-                                    paddingAngle={2}
-                                    dataKey="value"
-                                    stroke="none"
-                                    startAngle={90}
-                                    endAngle={-270}
-                                >
-                                    {donutData.map((_, index) => (
-                                        <Cell
-                                            key={`cell-${index}`}
-                                            fill={index === donutData.length - 1 && donutData[index].name === "Other Merchandising"
-                                                ? (isDarkMode ? "#475569" : "#94a3b8")
-                                                : activePalette[index % activePalette.length]
-                                            }
-                                            className="outline-none"
-                                        />
-                                    ))}
-                                </Pie>
-                                <Tooltip content={<CustomTooltip/>} wrapperStyle={{zIndex: 50}} />
-                            </PieChart>
-                        </ResponsiveContainer>
-                    </div>
-
-                    {/* DYNAMIC LEGEND AREA (Replaces Static Table) */}
-                    <div className="w-full lg:w-2/3 flex flex-col justify-center bg-slate-50/30 dark:bg-slate-800/20 rounded-2xl p-6 border border-slate-100 dark:border-slate-800/50">
-                        <h3 className="text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-4 px-2">Categories</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-[300px] overflow-y-auto scrollbar-thin scrollbar-thumb-slate-200 dark:scrollbar-thumb-slate-700 pr-2">
-                            {donutData.map((item, index) => (
-                                <div key={item.name} className="flex justify-between items-center bg-white dark:bg-slate-800/40 rounded-lg px-3 py-2 border border-slate-100 dark:border-slate-700/50 hover:border-indigo-100 dark:hover:border-indigo-900 transition-colors group">
-                                    <div className="flex items-center gap-2.5 truncate">
-                                        <div className="w-2.5 h-2.5 rounded-full flex-shrink-0 shadow-sm" style={{
-                                            backgroundColor: index === donutData.length - 1 && item.name === "Other Merchandising"
-                                                ? (isDarkMode ? "#475569" : "#94a3b8")
-                                                : activePalette[index % activePalette.length]
-                                        }}/>
-                                        <span className="text-xs font-bold text-slate-600 dark:text-slate-300 uppercase truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-300">{item.name}</span>
-                                    </div>
-                                    <span className="text-xs font-mono font-bold text-indigo-500 dark:text-indigo-400 ml-2">{item.value} LF</span>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                </div>
+            {/* TABS */}
+            <div className="border-b border-slate-200 dark:border-slate-800">
+                <nav className="-mb-px flex space-x-8 px-2" aria-label="Tabs">
+                    <button onClick={() => setActiveTab("merch")} className={`${activeTab === "merch" ? "border-indigo-500 text-indigo-600 dark:text-indigo-400" : "border-transparent text-slate-500"} whitespace-nowrap border-b-2 py-4 px-1 text-sm font-bold uppercase tracking-wide transition-colors`}>
+                        Merchandising
+                    </button>
+                    <button onClick={() => setActiveTab("bom")} className={`${activeTab === "bom" ? "border-indigo-500 text-indigo-600 dark:text-indigo-400" : "border-transparent text-slate-500"} whitespace-nowrap border-b-2 py-4 px-1 text-sm font-bold uppercase tracking-wide transition-colors`}>
+                        Bill of Materials
+                    </button>
+                </nav>
             </div>
 
-            {/* INVENTORY MANIFEST */}
-            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden transition-colors">
-                <div className="bg-slate-50/50 dark:bg-slate-800/50 px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row justify-between items-center gap-4">
-                    <h2 className="text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">Inventory Manifest</h2>
-                    <div className="flex rounded-lg bg-slate-200/50 dark:bg-slate-800 p-1 shadow-inner">
-                        <button onClick={() => setViewMode("grouped")} className={`px-5 py-1.5 text-xs font-bold uppercase rounded-md transition-all ${viewMode === "grouped" ? "bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-300 shadow-sm" : "text-slate-500"}`}>By Type</button>
-                        <button onClick={() => setViewMode("flat")} className={`px-5 py-1.5 text-xs font-bold uppercase rounded-md transition-all ${viewMode === "flat" ? "bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-300 shadow-sm" : "text-slate-500"}`}>Instances</button>
-                    </div>
-                </div>
-
-                <div className="p-6">
-                    {viewMode === "grouped" ? (
-                        <div className="space-y-4">
-                            {groupedData.map((group) => (
-                                <div key={group.asset.id} className="overflow-hidden rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 transition-colors shadow-sm">
-                                    <div className="flex items-center justify-between p-4 bg-slate-50/30 dark:bg-slate-800/30">
-                                        <div className="flex items-center gap-4 flex-1">
-                                            <div className="h-12 w-12 flex-shrink-0 overflow-hidden rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
-                                                {group.asset.catalog_img ? <img src={group.asset.catalog_img} className="h-full w-full object-contain" alt=""/> : <div className="h-full flex items-center justify-center text-xs text-slate-300 dark:text-slate-600 font-bold uppercase font-mono">IMG</div>}
-                                            </div>
-                                            <div>
-                                                <div className="text-xs font-mono text-indigo-500 dark:text-indigo-400 font-bold uppercase tracking-tight">{group.asset.type_id}</div>
-                                                <div className="font-bold text-slate-900 dark:text-white text-base leading-tight">{group.asset.name}</div>
-                                                <div className="text-sm text-slate-400 dark:text-slate-500 font-normal uppercase leading-none mt-1">{group.asset.manufacturer_name} • {group.asset.model}</div>
-                                            </div>
-                                        </div>
-
-                                        <div className="flex items-center gap-4">
-                                            <div className="text-right px-4 border-r border-slate-200 dark:border-slate-800">
-                                                <div className="text-xs uppercase text-slate-400 dark:text-slate-500 font-bold tracking-widest mb-1 leading-none">Qty</div>
-                                                <div className="text-xl font-black text-indigo-600 dark:text-indigo-400 leading-none">{group.items.length}</div>
-                                            </div>
-                                            <button
-                                                type="button"
-                                                onClick={(e) => { e.stopPropagation(); setSelectedAsset(group.asset); }}
-                                                className="rounded-md bg-white dark:bg-slate-800 px-3 py-1.5 text-xs font-bold text-slate-700 dark:text-slate-300 shadow-sm ring-1 ring-inset ring-slate-300 dark:ring-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
-                                            >
-                                                Asset Details
-                                            </button>
-                                            <button
-                                                type="button"
-                                                onClick={() => {
-                                                    const idVal = group.asset.id;
-                                                    setExpandedAssetIds((p) => {
-                                                        const next = new Set(p);
-                                                        if (next.has(idVal)) next.delete(idVal); else next.add(idVal);
-                                                        return next;
-                                                    });
-                                                }}
-                                                className={`p-2 transition-transform ${expandedAssetIds.has(group.asset.id) ? "rotate-180 text-indigo-600 dark:text-indigo-400" : "text-slate-300 dark:text-slate-600"}`}
-                                            >
-                                                ▼
-                                            </button>
-                                        </div>
-                                    </div>
-
-                                    {expandedAssetIds.has(group.asset.id) && (
-                                        <div className="bg-slate-50/20 dark:bg-slate-900/40 divide-y divide-slate-100 dark:divide-slate-800">
-                                            {group.items.map((item) => (
-                                                <div key={item.id} className="flex flex-col sm:flex-row px-6 py-3.5 hover:bg-white dark:hover:bg-slate-800 transition-colors gap-y-2">
-                                                    <span className="font-mono font-bold text-indigo-600 dark:text-indigo-400 min-w-[140px] flex items-center gap-2 text-sm">
-                                                        <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 shadow-sm"/>
-                                                        {item.instance_id || `INST-${item.id}`}
-                                                    </span>
-                                                    <div className="flex flex-1 gap-x-12">
-                                                        <div className="flex flex-col text-left">
-                                                            <span className="text-xs font-bold text-slate-400 dark:text-slate-600 uppercase leading-none mb-1 tracking-tight">Location</span>
-                                                            <span className="text-sm font-bold text-slate-700 dark:text-slate-300 leading-none">{item.location || "—"}</span>
-                                                        </div>
-                                                        <div className="flex flex-col text-left">
-                                                            <span className="text-xs font-bold text-slate-400 dark:text-slate-600 uppercase leading-none mb-1 tracking-tight">Merchandising</span>
-                                                            <span className="text-sm font-bold text-slate-700 dark:text-slate-300 leading-none">{formatCategory(item.custom_fields?.merch_category)}</span>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
+            {/* TAB CONTENT: MERCHANDISING */}
+            {activeTab === "merch" && (
+                <div className="space-y-6 animate-fadeIn">
+                    <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden p-6">
+                         <div className="flex flex-col lg:flex-row items-center justify-center gap-12 min-h-[320px]">
+                            <div className="w-full lg:w-1/3 h-[300px] relative">
+                                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-10">
+                                    <span className="text-4xl font-black text-slate-800 dark:text-slate-100 tracking-tight leading-none">{totalMerchandisableLF}</span>
+                                    <span className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mt-1">Total LF</span>
                                 </div>
-                            ))}
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <PieChart>
+                                        <Pie data={donutData} cx="50%" cy="50%" innerRadius={80} outerRadius={120} paddingAngle={2} dataKey="value" stroke="none">
+                                            {donutData.map((_, index) => (
+                                                <Cell key={`cell-${index}`} fill={activePalette[index % activePalette.length]} />
+                                            ))}
+                                        </Pie>
+                                        <Tooltip content={<CustomTooltip />} />
+                                    </PieChart>
+                                </ResponsiveContainer>
+                            </div>
+                            <div className="w-full lg:w-2/3 grid grid-cols-1 md:grid-cols-2 gap-2 max-h-[300px] overflow-y-auto">
+                                {donutData.map((item, index) => (
+                                    <div key={item.name} className="flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/40 rounded-lg px-3 py-2 border border-slate-100 dark:border-slate-700/50 hover:border-indigo-100 transition-colors">
+                                        <div className="flex items-center gap-2.5 truncate">
+                                            <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: activePalette[index % activePalette.length] }} />
+                                            <span className="text-xs font-bold text-slate-600 dark:text-slate-300 uppercase truncate">{item.name}</span>
+                                        </div>
+                                        <span className="text-xs font-mono font-bold text-indigo-500 dark:text-indigo-400 ml-2">{item.value} LF</span>
+                                    </div>
+                                ))}
+                            </div>
                         </div>
-                    ) : (
-                        <div className="rounded-xl border border-slate-100 dark:border-slate-800 overflow-x-auto shadow-sm">
+                        <div className="flex justify-end mt-4 gap-2">
+                             {( [5, 10, 25] as TopRange[] ).map((val) => (
+                                <button
+                                    key={val}
+                                    type="button"
+                                    onClick={() => setTopCount(val)}
+                                    className={`px-3 py-1 text-[10px] font-bold uppercase rounded border transition-colors ${topCount === val ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-slate-200 text-slate-400 hover:text-indigo-600'}`}
+                                >
+                                    Top {val}
+                                </button>
+                             ))}
+                        </div>
+                    </div>
+
+                    {/* INVENTORY MANIFEST */}
+                    <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden p-6">
+                        <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mb-6">
+                            <h2 className="text-xs font-bold uppercase tracking-widest text-slate-500">Inventory Manifest</h2>
+                            <div className="flex rounded-lg bg-slate-200/50 dark:bg-slate-800 p-1">
+                                <button onClick={() => setViewMode("grouped")} className={`px-5 py-1.5 text-xs font-bold uppercase rounded-md transition-all ${viewMode === "grouped" ? "bg-white dark:bg-slate-700 text-indigo-600 shadow-sm" : "text-slate-500"}`}>By Type</button>
+                                <button onClick={() => setViewMode("flat")} className={`px-5 py-1.5 text-xs font-bold uppercase rounded-md transition-all ${viewMode === "flat" ? "bg-white dark:bg-slate-700 text-indigo-600 shadow-sm" : "text-slate-500"}`}>Instances</button>
+                            </div>
+                        </div>
+
+                        {viewMode === "grouped" ? (
+                            <div className="space-y-4">
+                                {groupedData.map((group) => (
+                                    <div key={group.asset.id} className="rounded-xl border border-slate-100 dark:border-slate-800 overflow-hidden">
+                                        <div className="flex items-center justify-between p-4 bg-slate-50/30 dark:bg-slate-800/30">
+                                            <div className="flex items-center gap-4 flex-1">
+                                                <div className="h-12 w-12 flex-shrink-0 overflow-hidden rounded border border-slate-200 dark:border-slate-700">
+                                                    {group.asset.catalog_img ? <img src={group.asset.catalog_img} className="h-full w-full object-contain" alt="" /> : <div className="h-full flex items-center justify-center text-xs text-slate-300 font-bold uppercase font-mono">IMG</div>}
+                                                </div>
+                                                <div>
+                                                    <div className="text-xs font-mono text-indigo-500 font-bold">{group.asset.type_id}</div>
+                                                    <div className="font-bold text-slate-900 dark:text-white">{group.asset.name}</div>
+                                                    <div className="text-sm text-slate-400">{group.asset.manufacturer_name} • {group.asset.model}</div>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-4">
+                                                <div className="text-right px-4 border-r border-slate-200 dark:border-slate-800">
+                                                    <div className="text-xs uppercase text-slate-400 font-bold">Qty</div>
+                                                    <div className="text-xl font-black text-indigo-600">{group.items.length}</div>
+                                                </div>
+                                                <button onClick={() => setSelectedAsset(group.asset)} className="rounded-md bg-white dark:bg-slate-800 px-3 py-1.5 text-xs font-bold text-slate-700 dark:text-slate-300 shadow-sm ring-1 ring-slate-300 dark:ring-slate-700">Asset Details</button>
+                                                <button
+                                                    onClick={() => setExpandedAssetIds(prev => {
+                                                        const n = new Set(prev);
+                                                        if (n.has(group.asset.id)) {
+                                                            n.delete(group.asset.id);
+                                                        } else {
+                                                            n.add(group.asset.id);
+                                                        }
+                                                        return n;
+                                                    })}
+                                                    className={`p-2 transition-transform ${expandedAssetIds.has(group.asset.id) ? "rotate-180 text-indigo-600" : "text-slate-300"}`}
+                                                >
+                                                    ▼
+                                                </button>
+                                            </div>
+                                        </div>
+                                        {expandedAssetIds.has(group.asset.id) && (
+                                            <div className="bg-slate-50/20 divide-y divide-slate-100 dark:divide-slate-800">
+                                                {group.items.map(item => (
+                                                    <div key={item.id} className="flex px-6 py-3.5 hover:bg-white dark:hover:bg-slate-800 transition-colors">
+                                                        <span className="font-mono font-bold text-indigo-600 min-w-[140px] text-sm">{item.instance_id || `INST-${item.id}`}</span>
+                                                        <span className="text-sm font-bold text-slate-700 dark:text-slate-300 flex-1">{item.location || "General Area"}</span>
+                                                        <span className="text-sm text-slate-400">{formatCategory(item.custom_fields?.merch_category)}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
                             <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-800">
                                 <thead className="bg-slate-50 dark:bg-slate-800/50">
-                                <tr className="text-xs font-bold uppercase text-slate-400 dark:text-slate-500 tracking-widest">
-                                    <th onClick={() => handleFlatSort("instance_id")} className="px-6 py-4 text-left cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">Tag {renderSortArrow("instance_id")}</th>
-                                    <th onClick={() => handleFlatSort("type_id")} className="px-6 py-4 text-left cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">Type ID {renderSortArrow("type_id")}</th>
-                                    <th onClick={() => handleFlatSort("asset_name")} className="px-6 py-4 text-left cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">Asset {renderSortArrow("asset_name")}</th>
-                                    <th onClick={() => handleFlatSort("merch_category")} className="px-6 py-4 text-left cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">Category {renderSortArrow("merch_category")}</th>
-                                    <th className="px-6 py-4 text-left text-slate-400 dark:text-slate-500">Location</th>
-                                </tr>
-                                </thead>
-                                <tbody className="divide-y divide-slate-100 dark:divide-slate-800 bg-white dark:bg-slate-900">
-                                {sortedInstances.map((inst) => (
-                                    <tr key={inst.id} onClick={() => setSelectedAsset(inst.asset_details)} className="cursor-pointer hover:bg-indigo-50/30 dark:hover:bg-indigo-900/20 transition-colors">
-                                        <td className="px-6 py-4 font-mono text-xs text-indigo-600 dark:text-indigo-400 font-bold">{inst.instance_id}</td>
-                                        <td className="px-6 py-4 font-mono text-xs text-slate-400 dark:text-slate-500">{inst.asset_details.type_id}</td>
-                                        <td className="px-6 py-4">
-                                            <div className="text-sm font-bold text-slate-900 dark:text-white leading-none mb-1">{inst.asset_details.name}</div>
-                                            <div className="text-xs text-slate-400 dark:text-slate-500 font-bold uppercase tracking-tight">{inst.asset_details.manufacturer_name}</div>
-                                        </td>
-                                        <td className="px-6 py-4 text-xs font-bold text-slate-600 dark:text-slate-400">{formatCategory(inst.custom_fields?.merch_category)}</td>
-                                        <td className="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-600">{inst.location || "—"}</td>
+                                    <tr className="text-xs font-bold uppercase text-slate-400 tracking-widest">
+                                        <th onClick={() => handleFlatSort("instance_id")} className="px-6 py-4 text-left cursor-pointer">Tag {renderSortArrow("instance_id")}</th>
+                                        <th onClick={() => handleFlatSort("type_id")} className="px-6 py-4 text-left cursor-pointer">Type ID {renderSortArrow("type_id")}</th>
+                                        <th onClick={() => handleFlatSort("asset_name")} className="px-6 py-4 text-left cursor-pointer">Asset {renderSortArrow("asset_name")}</th>
+                                        <th className="px-6 py-4 text-left">Location</th>
                                     </tr>
-                                ))}
+                                </thead>
+                                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                                    {sortedInstances.map(inst => (
+                                        <tr key={inst.id} onClick={() => setSelectedAsset(inst.asset_details)} className="cursor-pointer hover:bg-indigo-50/30">
+                                            <td className="px-6 py-4 font-mono text-xs text-indigo-600 font-bold">{inst.instance_id}</td>
+                                            <td className="px-6 py-4 font-mono text-xs text-slate-400">{inst.asset_details.type_id}</td>
+                                            <td className="px-6 py-4 font-bold text-slate-900 dark:text-white text-sm">{inst.asset_details.name}</td>
+                                            <td className="px-6 py-4 text-xs font-bold text-slate-500">{inst.location || "—"}</td>
+                                        </tr>
+                                    ))}
                                 </tbody>
                             </table>
-                        </div>
-                    )}
+                        )}
+                    </div>
                 </div>
-            </div>
+            )}
+
+            {/* TAB CONTENT: BILL OF MATERIALS (AGGREGATED) */}
+            {activeTab === "bom" && (
+                <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden animate-fadeIn">
+                    <div className="overflow-x-auto">
+                        <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-800">
+                            <thead className="bg-slate-50 dark:bg-slate-800/50">
+                                <tr className="text-xs font-bold uppercase text-slate-400 dark:text-slate-500 tracking-widest">
+                                    <th className="px-6 py-4 text-left w-32">Type ID</th>
+                                    <th className="px-6 py-4 text-center w-24">Total Qty</th>
+                                    <th className="px-6 py-4 text-left">Asset Name</th>
+                                    <th className="px-6 py-4 text-left">Manufacturer</th>
+                                    <th className="px-6 py-4 text-left">Model</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100 dark:divide-slate-800 bg-white dark:bg-slate-900">
+                                {aggregatedBOM.length > 0 ? (
+                                    aggregatedBOM.map((item) => (
+                                        <tr
+                                            key={`${item.assetId}-${item.typeId}`}
+                                            className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
+                                        >
+                                            <td className="px-6 py-3 font-mono text-xs font-bold text-indigo-600 dark:text-indigo-400">
+                                                {item.typeId}
+                                            </td>
+                                            <td className="px-6 py-3 text-center">
+                                                <span className="inline-flex items-center justify-center min-w-[2rem] px-2 py-1 bg-slate-100 dark:bg-slate-800 rounded-md text-sm font-black text-slate-700 dark:text-slate-300">
+                                                    {item.totalQuantity}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-3">
+                                                <div className="text-sm font-bold text-slate-900 dark:text-white">
+                                                    {item.name}
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-3 text-xs text-slate-600 dark:text-slate-400">
+                                                {item.manufacturer}
+                                            </td>
+                                            <td className="px-6 py-3 text-xs text-slate-600 dark:text-slate-400 font-mono">
+                                                {item.model}
+                                            </td>
+                                        </tr>
+                                    ))
+                                ) : (
+                                    <tr>
+                                        <td colSpan={5} className="px-6 py-12 text-center text-slate-400 dark:text-slate-500 text-sm italic">
+                                            No assets found in this snapshot.
+                                        </td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            )}
 
             {selectedAsset && (
-                <DetailModal open={!!selectedAsset} item={selectedAsset} title={selectedAsset.name} onClose={() => setSelectedAsset(null)} />
+                <DetailModal open={!!selectedAsset} item={selectedAsset} title={selectedAsset.name} onClose={() => setSelectedAsset(null)}/>
             )}
         </div>
     );

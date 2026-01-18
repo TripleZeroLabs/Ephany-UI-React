@@ -1,4 +1,4 @@
-export type Asset = {
+export interface Asset {
   id: number;
   type_id: string;
   manufacturer: number;
@@ -14,13 +14,49 @@ export type Asset = {
   custom_fields: Record<string, unknown> | null;
   catalog_img: string;
   files: unknown[];
+  // Components defined at the Library level (Required vs Optional)
+  components?: AssetComponent[];
   _display_units: {
     length: string;
     area: string;
     volume: string;
     mass: string;
   };
-};
+}
+
+export interface AssetComponent {
+  id: number;
+  parent_asset: number;
+  child_asset: Asset; // Nested full asset data
+  quantity_required: number;
+  can_add_per_instance: boolean;
+}
+
+/**
+ * NEW: Interface for the specific instance-level components
+ * This matches your Django AssetComponentInstance model.
+ */
+export interface AssetComponentInstance {
+  id: number;
+  asset_component: AssetComponent; // Nested component definition
+  quantity: number;
+  // Read-only helpers provided by the Serializer
+  component_name?: string;
+  component_type_id?: string;
+}
+
+/**
+ * NEW: Interface for the Asset Instance (Project side)
+ */
+export interface AssetInstance {
+  id: number;
+  instance_id: string | null;
+  location: string | null;
+  asset: number;
+  asset_details: Asset; // Full library data
+  optional_components: AssetComponentInstance[]; // The specific added components
+  custom_fields: Record<string, unknown>;
+}
 
 export type PaginatedResponse<T> = {
   count: number;
@@ -42,7 +78,6 @@ export type AssetManufacturer = {
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api";
 const API_KEY = import.meta.env.VITE_API_KEY;
 
-// UPDATED: Added 'ordering' to support server-side sorting
 export type FetchAssetsOptions = {
   page?: number;
   pageSize?: number;
@@ -52,10 +87,6 @@ export type FetchAssetsOptions = {
   ordering?: string;
 };
 
-/**
- * Creates a standard headers object for inclusion in a RequestInit object.
- * @returns Headers object mapping header names to values.
- */
 function getHeadersObject() {
   return {
     "Content-Type": "application/json",
@@ -65,9 +96,6 @@ function getHeadersObject() {
 
 /**
  * Fetches a paginated list of assets from the primary API endpoint.
- * Supports searching, sorting, and server-side filtering by category and manufacturer.
- * @param opts - Options for pagination, search, sorting, and filtering.
- * @returns A promise resolving to PaginatedResponse<Asset>.
  */
 export async function fetchAssets(
   opts: FetchAssetsOptions = {},
@@ -79,97 +107,44 @@ export async function fetchAssets(
   params.set("page", String(page));
   params.set("page_size", String(pageSize));
 
-  if (opts.search) {
-    params.set("search", opts.search);
-  }
-
-  // Server-side filtering parameters
-  if (opts.categoryName) {
-    params.set("category__name", opts.categoryName);
-  }
-
-  if (opts.manufacturerName) {
-    params.set("manufacturer__name", opts.manufacturerName);
-  }
-
-  // UPDATED: Append ordering parameter if it exists
-  if (opts.ordering) {
-    params.set("ordering", opts.ordering);
-  }
+  if (opts.search) params.set("search", opts.search);
+  if (opts.categoryName) params.set("category__name", opts.categoryName);
+  if (opts.manufacturerName) params.set("manufacturer__name", opts.manufacturerName);
+  if (opts.ordering) params.set("ordering", opts.ordering);
 
   const url = `${API_BASE_URL}/assets/?${params.toString()}`;
 
-  try {
-    const res = await fetch(url, {
-      headers: getHeadersObject(),
-    });
-
-    if (!res.ok) {
-      const text = await res.text();
-      console.error("fetchAssets error body:", text);
-      throw new Error(
-        `Failed to fetch assets: ${res.status} ${res.statusText} - ${text}`,
-      );
-    }
-
-    const data = (await res.json()) as PaginatedResponse<Asset>;
-    return data;
-  } catch (err) {
-    console.error("fetchAssets network/other error:", err);
-    throw err;
-  }
+  const res = await fetch(url, { headers: getHeadersObject() });
+  if (!res.ok) throw new Error(`Failed to fetch assets: ${res.status}`);
+  return (await res.json()) as PaginatedResponse<Asset>;
 }
 
 /**
- * Fetches a complete, non-paginated list of all AssetCategories.
+ * NEW: Fetches a single Asset Instance with all its nested components.
+ */
+export async function fetchAssetInstance(id: number): Promise<AssetInstance> {
+  const url = `${API_BASE_URL}/instances/${id}/`;
+  const res = await fetch(url, { headers: getHeadersObject() });
+  if (!res.ok) throw new Error(`Failed to fetch instance: ${res.status}`);
+  return (await res.json()) as AssetInstance;
+}
+
+/**
+ * Fetches AssetCategories for filter dropdowns.
  */
 export async function fetchAllCategories(): Promise<AssetCategory[]> {
   const url = `${API_BASE_URL}/assets/all_categories/`;
-
-  try {
-    const res = await fetch(url, {
-      headers: getHeadersObject(),
-    });
-
-    if (!res.ok) {
-      const text = await res.text();
-      console.error("fetchAllCategories error body:", text);
-      throw new Error(
-        `Failed to fetch categories: ${res.status} ${res.statusText} - ${text}`,
-      );
-    }
-
-    const data = (await res.json()) as AssetCategory[];
-    return data;
-  } catch (err) {
-    console.error("fetchAllCategories network/other error:", err);
-    throw err;
-  }
+  const res = await fetch(url, { headers: getHeadersObject() });
+  if (!res.ok) throw new Error(`Failed to fetch categories: ${res.status}`);
+  return (await res.json()) as AssetCategory[];
 }
 
 /**
- * Fetches a complete, non-paginated list of all Manufacturers.
+ * Fetches Manufacturers for filter dropdowns.
  */
 export async function fetchAllManufacturers(): Promise<AssetManufacturer[]> {
   const url = `${API_BASE_URL}/assets/all_manufacturers/`;
-
-  try {
-    const res = await fetch(url, {
-      headers: getHeadersObject(),
-    });
-
-    if (!res.ok) {
-      const text = await res.text();
-      console.error("fetchAllManufacturers error body:", text);
-      throw new Error(
-        `Failed to fetch manufacturers: ${res.status} ${res.statusText} - ${text}`,
-      );
-    }
-
-    const data = (await res.json()) as AssetManufacturer[];
-    return data;
-  } catch (err) {
-    console.error("fetchAllManufacturers network/other error:", err);
-    throw err;
-  }
+  const res = await fetch(url, { headers: getHeadersObject() });
+  if (!res.ok) throw new Error(`Failed to fetch manufacturers: ${res.status}`);
+  return (await res.json()) as AssetManufacturer[];
 }
