@@ -1,5 +1,5 @@
-import { useEffect, useState, useMemo } from "react";
-import { useParams, Link, useNavigate } from "react-router-dom";
+import {useEffect, useState, useMemo, Fragment} from "react";
+import {useParams, Link, useNavigate} from "react-router-dom";
 import {
     PieChart,
     Pie,
@@ -15,9 +15,9 @@ import {
     fetchInstancesForSnapshot,
     fetchProjectDetail,
 } from "../api/projects";
-import { type Asset } from "../api/assets";
-import { DetailModal } from "../components/DetailModal";
-import { usePageTitle } from "../hooks/usePageTitle.ts";
+import {type Asset} from "../api/assets";
+import {DetailModal} from "../components/DetailModal";
+import {usePageTitle} from "../hooks/usePageTitle.ts";
 
 // --- TYPES ---
 type FlatSortKey = keyof AssetInstance | "asset_name" | "type_id" | "manufacturer" | "merch_category";
@@ -32,9 +32,7 @@ interface BOMItem {
     model: string;
     totalQuantity: number;
     isComponent: boolean;
-    // Track which parents use this component
     contributingParents: Set<string>;
-    // NEW: Store full asset to enable opening the DetailModal
     originalAsset: Asset;
 }
 
@@ -52,6 +50,7 @@ interface ChartItem {
     name: string;
     value: number;
     percentage: number;
+
     [key: string]: string | number;
 }
 
@@ -75,11 +74,12 @@ const PALETTE_DARK = [
     "#f1f5f9", "#f8fafc", "#ffffff", "#e0e7ff", "#c7d2fe"
 ];
 
-const CustomTooltip = ({ active, payload }: CustomTooltipProps) => {
+const CustomTooltip = ({active, payload}: CustomTooltipProps) => {
     if (active && payload && payload.length > 0) {
         const data = payload[0].payload;
         return (
-            <div className="bg-white dark:bg-slate-800 p-3 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xl pointer-events-none transition-colors">
+            <div
+                className="bg-white dark:bg-slate-800 p-3 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xl pointer-events-none transition-colors">
                 <p className="text-sm font-black text-slate-900 dark:text-white mb-1">{data.name}</p>
                 <div className="flex flex-col gap-0.5">
                     <span className="text-indigo-600 dark:text-indigo-400 font-black text-base">{data.value} LF</span>
@@ -93,10 +93,20 @@ const CustomTooltip = ({ active, payload }: CustomTooltipProps) => {
     return null;
 };
 
+// Helper to safely extract manufacturer name
+const getManufacturerName = (asset: Asset | null): string => {
+    if (!asset) return "—";
+    const mfrRaw = asset.manufacturer as unknown;
+    if (mfrRaw && typeof mfrRaw === 'object' && 'name' in (mfrRaw as Record<string, unknown>)) {
+        return (mfrRaw as { name: string }).name;
+    }
+    return asset.manufacturer_name || "—";
+};
+
 export function SnapshotDetailView() {
     usePageTitle("Project Snapshot");
 
-    const { id, tab } = useParams<{ id: string; tab?: string }>();
+    const {id, tab} = useParams<{ id: string; tab?: string }>();
     const navigate = useNavigate();
 
     const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
@@ -107,9 +117,12 @@ export function SnapshotDetailView() {
 
     const activeTab = (tab === "bom") ? "bom" : "merch";
 
-    const [viewMode, setViewMode] = useState<"flat" | "grouped">("grouped");
+    // View Modes for each tab
+    const [merchViewMode, setMerchViewMode] = useState<"flat" | "grouped">("grouped");
+    const [bomViewMode, setBomViewMode] = useState<"aggregated" | "instances">("aggregated");
+
     const [groupSortKey] = useState<GroupSortKey>("quantity");
-    const [flatSort, setFlatSort] = useState<SortConfig>({ key: "instance_id", direction: "asc" });
+    const [flatSort, setFlatSort] = useState<SortConfig>({key: "instance_id", direction: "asc"});
 
     const [topCount, setTopCount] = useState<TopRange>(5);
     const [expandedAssetIds, setExpandedAssetIds] = useState<Set<number>>(new Set());
@@ -118,7 +131,7 @@ export function SnapshotDetailView() {
     useEffect(() => {
         const checkTheme = () => setIsDarkMode(document.documentElement.classList.contains("dark"));
         const observer = new MutationObserver(checkTheme);
-        observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
+        observer.observe(document.documentElement, {attributes: true, attributeFilter: ["class"]});
         checkTheme();
         return () => observer.disconnect();
     }, []);
@@ -145,7 +158,9 @@ export function SnapshotDetailView() {
             }
         };
         void loadData();
-        return () => { isMounted = false; };
+        return () => {
+            isMounted = false;
+        };
     }, [id]);
 
     const activePalette = isDarkMode ? PALETTE_DARK : PALETTE_LIGHT;
@@ -155,7 +170,7 @@ export function SnapshotDetailView() {
         return cat.replace(/\s*\/\/\s*/g, ", ");
     };
 
-    const { donutData, totalMerchandisableLF } = useMemo(() => {
+    const {donutData, totalMerchandisableLF} = useMemo(() => {
         const categoryMap: Record<string, number> = {};
         let totalLF = 0;
 
@@ -197,7 +212,7 @@ export function SnapshotDetailView() {
             });
         }
 
-        return { donutData: donutSet, totalMerchandisableLF: totalLF.toFixed(1) };
+        return {donutData: donutSet, totalMerchandisableLF: totalLF.toFixed(1)};
     }, [instances, topCount]);
 
     // --- AGGREGATED BOM LOGIC ---
@@ -206,15 +221,6 @@ export function SnapshotDetailView() {
 
         const addItem = (asset: Asset, qty: number, isComp: boolean, parentName?: string) => {
             if (!asset) return;
-
-            let mfrName = "—";
-            // Safe check for nested manufacturer object vs flat string ID
-            const mfrRaw = asset.manufacturer as unknown;
-            if (mfrRaw && typeof mfrRaw === 'object' && 'name' in (mfrRaw as Record<string, unknown>)) {
-                mfrName = (mfrRaw as { name: string }).name;
-            } else if (asset.manufacturer_name) {
-                mfrName = asset.manufacturer_name;
-            }
 
             const existing = bomMap.get(asset.id);
             if (existing) {
@@ -230,12 +236,12 @@ export function SnapshotDetailView() {
                     assetId: asset.id,
                     typeId: asset.type_id || "—",
                     name: asset.name,
-                    manufacturer: mfrName,
+                    manufacturer: getManufacturerName(asset),
                     model: asset.model || "—",
                     totalQuantity: qty,
                     isComponent: isComp,
                     contributingParents: parents,
-                    originalAsset: asset // Stored for the modal
+                    originalAsset: asset
                 });
             }
         };
@@ -281,7 +287,8 @@ export function SnapshotDetailView() {
 
     const renderSortArrow = (key: FlatSortKey) => {
         if (flatSort.key !== key) return <span className="ml-1 opacity-20">↕</span>;
-        return <span className="ml-1 text-indigo-600 dark:text-indigo-400 font-bold">{flatSort.direction === "asc" ? "↑" : "↓"}</span>;
+        return <span
+            className="ml-1 text-indigo-600 dark:text-indigo-400 font-bold">{flatSort.direction === "asc" ? "↑" : "↓"}</span>;
     };
 
     const groupedData = useMemo(() => {
@@ -289,7 +296,7 @@ export function SnapshotDetailView() {
         instances.forEach((inst) => {
             if (!inst.asset_details) return;
             const assetId = inst.asset_details.id;
-            if (!groups[assetId]) groups[assetId] = { asset: inst.asset_details, items: [] };
+            if (!groups[assetId]) groups[assetId] = {asset: inst.asset_details, items: []};
             groups[assetId].items.push(inst);
         });
 
@@ -307,10 +314,22 @@ export function SnapshotDetailView() {
             let valA: string | number = "";
             let valB: string | number = "";
             switch (flatSort.key) {
-                case "asset_name": valA = a.asset_details.name; valB = b.asset_details.name; break;
-                case "type_id": valA = a.asset_details.type_id; valB = b.asset_details.type_id; break;
-                case "manufacturer": valA = a.asset_details.manufacturer_name; valB = b.asset_details.manufacturer_name; break;
-                case "merch_category": valA = formatCategory(a.custom_fields?.merch_category); valB = formatCategory(b.custom_fields?.merch_category); break;
+                case "asset_name":
+                    valA = a.asset_details.name;
+                    valB = b.asset_details.name;
+                    break;
+                case "type_id":
+                    valA = a.asset_details.type_id;
+                    valB = b.asset_details.type_id;
+                    break;
+                case "manufacturer":
+                    valA = a.asset_details.manufacturer_name;
+                    valB = b.asset_details.manufacturer_name;
+                    break;
+                case "merch_category":
+                    valA = formatCategory(a.custom_fields?.merch_category);
+                    valB = formatCategory(b.custom_fields?.merch_category);
+                    break;
                 default:
                     valA = (a[flatSort.key as keyof AssetInstance] as string | number) || "";
                     valB = (b[flatSort.key as keyof AssetInstance] as string | number) || "";
@@ -330,7 +349,8 @@ export function SnapshotDetailView() {
     return (
         <div className="mx-auto max-w-7xl py-3 space-y-6">
             {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 px-2 border-b border-slate-200 dark:border-slate-800 pb-2">
+            <div
+                className="flex flex-col md:flex-row md:items-end justify-between gap-4 px-2 border-b border-slate-200 dark:border-slate-800 pb-2">
                 <nav className="-mb-2.5 flex space-x-6" aria-label="Tabs">
                     <button
                         onClick={() => navigate(`/snapshots/${id}/merch`)}
@@ -355,13 +375,15 @@ export function SnapshotDetailView() {
                 </nav>
 
                 <div className="text-right">
-                    <nav className="text-[10px] font-bold uppercase tracking-widest text-slate-400 flex items-center justify-end gap-2 mb-1">
+                    <nav
+                        className="text-[10px] font-bold uppercase tracking-widest text-slate-400 flex items-center justify-end gap-2 mb-1">
                         <Link to="/projects" className="hover:text-indigo-600 transition-colors">Projects</Link>
                         <span>/</span> <span>{project.name}</span>
                     </nav>
                     <div className="flex items-baseline justify-end gap-3">
                         <h1 className="text-2xl text-slate-800 dark:text-white font-bold tracking-tight">{snapshot.name}</h1>
-                        <span className="text-xs font-medium text-slate-400 dark:text-slate-500">{new Date(snapshot.date).toLocaleDateString()}</span>
+                        <span
+                            className="text-xs font-medium text-slate-400 dark:text-slate-500">{new Date(snapshot.date).toLocaleDateString()}</span>
                     </div>
                 </div>
             </div>
@@ -369,38 +391,49 @@ export function SnapshotDetailView() {
             {/* TAB CONTENT: MERCHANDISING */}
             {activeTab === "merch" && (
                 <div className="space-y-6 animate-fadeIn">
-                    <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden p-6">
-                         <div className="flex flex-col lg:flex-row items-center justify-center gap-12 min-h-[320px]">
+                    <div
+                        className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden p-6">
+                        <div className="flex flex-col lg:flex-row items-center justify-center gap-12 min-h-[320px]">
                             <div className="w-full lg:w-1/3 h-[300px] relative">
-                                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-10">
-                                    <span className="text-4xl font-black text-slate-800 dark:text-slate-100 tracking-tight leading-none">{totalMerchandisableLF}</span>
-                                    <span className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mt-1">Total LF</span>
+                                <div
+                                    className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-10">
+                                    <span
+                                        className="text-4xl font-black text-slate-800 dark:text-slate-100 tracking-tight leading-none">{totalMerchandisableLF}</span>
+                                    <span
+                                        className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mt-1">Total LF</span>
                                 </div>
                                 <ResponsiveContainer width="100%" height="100%">
                                     <PieChart>
-                                        <Pie data={donutData} cx="50%" cy="50%" innerRadius={80} outerRadius={120} paddingAngle={2} dataKey="value" stroke="none">
+                                        <Pie data={donutData} cx="50%" cy="50%" innerRadius={80} outerRadius={120}
+                                             paddingAngle={2} dataKey="value" stroke="none">
                                             {donutData.map((_, index) => (
-                                                <Cell key={`cell-${index}`} fill={activePalette[index % activePalette.length]} />
+                                                <Cell key={`cell-${index}`}
+                                                      fill={activePalette[index % activePalette.length]}/>
                                             ))}
                                         </Pie>
-                                        <Tooltip content={<CustomTooltip />} />
+                                        <Tooltip content={<CustomTooltip/>}/>
                                     </PieChart>
                                 </ResponsiveContainer>
                             </div>
-                            <div className="w-full lg:w-2/3 grid grid-cols-1 md:grid-cols-2 gap-2 max-h-[300px] overflow-y-auto">
+                            <div
+                                className="w-full lg:w-2/3 grid grid-cols-1 md:grid-cols-2 gap-2 max-h-[300px] overflow-y-auto">
                                 {donutData.map((item, index) => (
-                                    <div key={item.name} className="flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/40 rounded-lg px-3 py-2 border border-slate-100 dark:border-slate-700/50 hover:border-indigo-100 transition-colors">
+                                    <div key={item.name}
+                                         className="flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/40 rounded-lg px-3 py-2 border border-slate-100 dark:border-slate-700/50 hover:border-indigo-100 transition-colors">
                                         <div className="flex items-center gap-2.5 truncate">
-                                            <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: activePalette[index % activePalette.length] }} />
-                                            <span className="text-xs font-bold text-slate-600 dark:text-slate-300 uppercase truncate">{item.name}</span>
+                                            <div className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                                                 style={{backgroundColor: activePalette[index % activePalette.length]}}/>
+                                            <span
+                                                className="text-xs font-bold text-slate-600 dark:text-slate-300 uppercase truncate">{item.name}</span>
                                         </div>
-                                        <span className="text-xs font-mono font-bold text-indigo-500 dark:text-indigo-400 ml-2">{item.value} LF</span>
+                                        <span
+                                            className="text-xs font-mono font-bold text-indigo-500 dark:text-indigo-400 ml-2">{item.value} LF</span>
                                     </div>
                                 ))}
                             </div>
                         </div>
                         <div className="flex justify-end mt-4 gap-2">
-                             {( [5, 10, 25] as TopRange[] ).map((val) => (
+                            {([5, 10, 25] as TopRange[]).map((val) => (
                                 <button
                                     key={val}
                                     type="button"
@@ -409,41 +442,63 @@ export function SnapshotDetailView() {
                                 >
                                     Top {val}
                                 </button>
-                             ))}
+                            ))}
                         </div>
                     </div>
 
                     {/* INVENTORY MANIFEST */}
-                    <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden p-6">
+                    <div
+                        className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden p-6">
                         <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mb-6">
-                            <h2 className="text-xs font-bold uppercase tracking-widest text-slate-500">Inventory Manifest</h2>
+                            <h2 className="text-xs font-bold uppercase tracking-widest text-slate-500">Inventory
+                                Manifest</h2>
                             <div className="flex rounded-lg bg-slate-200/50 dark:bg-slate-800 p-1">
-                                <button onClick={() => setViewMode("grouped")} className={`px-5 py-1.5 text-xs font-bold uppercase rounded-md transition-all ${viewMode === "grouped" ? "bg-white dark:bg-slate-700 text-indigo-600 shadow-sm" : "text-slate-500"}`}>By Type</button>
-                                <button onClick={() => setViewMode("flat")} className={`px-5 py-1.5 text-xs font-bold uppercase rounded-md transition-all ${viewMode === "flat" ? "bg-white dark:bg-slate-700 text-indigo-600 shadow-sm" : "text-slate-500"}`}>Instances</button>
+                                <button onClick={() => setMerchViewMode("grouped")}
+                                        className={`px-5 py-1.5 text-xs font-bold uppercase rounded-md transition-all ${merchViewMode === "grouped" ? "bg-white dark:bg-slate-700 text-indigo-600 shadow-sm" : "text-slate-500"}`}>By
+                                    Type
+                                </button>
+                                <button onClick={() => setMerchViewMode("flat")}
+                                        className={`px-5 py-1.5 text-xs font-bold uppercase rounded-md transition-all ${merchViewMode === "flat" ? "bg-white dark:bg-slate-700 text-indigo-600 shadow-sm" : "text-slate-500"}`}>Instances
+                                </button>
                             </div>
                         </div>
 
-                        {viewMode === "grouped" ? (
+                        {merchViewMode === "grouped" ? (
                             <div className="space-y-4">
                                 {groupedData.map((group) => (
-                                    <div key={group.asset.id} className="rounded-xl border border-slate-100 dark:border-slate-800 overflow-hidden">
-                                        <div className="flex items-center justify-between p-4 bg-slate-50/30 dark:bg-slate-800/30">
+                                    <div key={group.asset.id}
+                                         className="rounded-xl border border-slate-100 dark:border-slate-800 overflow-hidden">
+                                        <div
+                                            className="flex items-center justify-between p-4 bg-slate-50/30 dark:bg-slate-800/30">
                                             <div className="flex items-center gap-4 flex-1">
-                                                <div className="h-12 w-12 flex-shrink-0 overflow-hidden rounded border border-slate-200 dark:border-slate-700">
-                                                    {group.asset.catalog_img ? <img src={group.asset.catalog_img} className="h-full w-full object-contain" alt="" /> : <div className="h-full flex items-center justify-center text-xs text-slate-300 font-bold uppercase font-mono">IMG</div>}
+                                                <div
+                                                    className="h-12 w-12 flex-shrink-0 overflow-hidden rounded border border-slate-200 dark:border-slate-700">
+                                                    {group.asset.catalog_img ? <img src={group.asset.catalog_img}
+                                                                                    className="h-full w-full object-contain"
+                                                                                    alt=""/> : <div
+                                                        className="h-full flex items-center justify-center text-xs text-slate-300 font-bold uppercase font-mono">IMG</div>}
                                                 </div>
                                                 <div>
-                                                    <div className="text-xs font-mono text-indigo-500 font-bold">{group.asset.type_id}</div>
-                                                    <div className="font-bold text-slate-900 dark:text-white">{group.asset.name}</div>
-                                                    <div className="text-sm text-slate-400">{group.asset.manufacturer_name} • {group.asset.model}</div>
+                                                    <div
+                                                        className="text-xs font-mono text-indigo-500 font-bold">{group.asset.type_id}</div>
+                                                    <div
+                                                        className="font-bold text-slate-900 dark:text-white">{group.asset.name}</div>
+                                                    <div
+                                                        className="text-sm text-slate-400">{getManufacturerName(group.asset)} • {group.asset.model}</div>
                                                 </div>
                                             </div>
                                             <div className="flex items-center gap-4">
-                                                <div className="text-right px-4 border-r border-slate-200 dark:border-slate-800">
-                                                    <div className="text-xs uppercase text-slate-400 font-bold">Qty</div>
-                                                    <div className="text-xl font-black text-indigo-600">{group.items.length}</div>
+                                                <div
+                                                    className="text-right px-4 border-r border-slate-200 dark:border-slate-800">
+                                                    <div className="text-xs uppercase text-slate-400 font-bold">Qty
+                                                    </div>
+                                                    <div
+                                                        className="text-xl font-black text-indigo-600">{group.items.length}</div>
                                                 </div>
-                                                <button onClick={() => setSelectedAsset(group.asset)} className="rounded-md bg-white dark:bg-slate-800 px-3 py-1.5 text-xs font-bold text-slate-700 dark:text-slate-300 shadow-sm ring-1 ring-slate-300 dark:ring-slate-700">Asset Details</button>
+                                                <button onClick={() => setSelectedAsset(group.asset)}
+                                                        className="rounded-md bg-white dark:bg-slate-800 px-3 py-1.5 text-xs font-bold text-slate-700 dark:text-slate-300 shadow-sm ring-1 ring-slate-300 dark:ring-slate-700">Asset
+                                                    Details
+                                                </button>
                                                 <button
                                                     onClick={() => setExpandedAssetIds(prev => {
                                                         const n = new Set(prev);
@@ -461,12 +516,17 @@ export function SnapshotDetailView() {
                                             </div>
                                         </div>
                                         {expandedAssetIds.has(group.asset.id) && (
-                                            <div className="bg-slate-50/20 divide-y divide-slate-100 dark:divide-slate-800">
+                                            <div
+                                                className="bg-slate-50/20 divide-y divide-slate-100 dark:divide-slate-800">
                                                 {group.items.map(item => (
-                                                    <div key={item.id} className="flex px-6 py-3.5 hover:bg-white dark:hover:bg-slate-800 transition-colors">
-                                                        <span className="font-mono font-bold text-indigo-600 min-w-[140px] text-sm">{item.instance_id || `INST-${item.id}`}</span>
-                                                        <span className="text-sm font-bold text-slate-700 dark:text-slate-300 flex-1">{item.location || "General Area"}</span>
-                                                        <span className="text-sm text-slate-400">{formatCategory(item.custom_fields?.merch_category)}</span>
+                                                    <div key={item.id}
+                                                         className="flex px-6 py-3.5 hover:bg-white dark:hover:bg-slate-800 transition-colors">
+                                                        <span
+                                                            className="font-mono font-bold text-indigo-600 min-w-[140px] text-sm">{item.instance_id || `INST-${item.id}`}</span>
+                                                        <span
+                                                            className="text-sm font-bold text-slate-700 dark:text-slate-300 flex-1">{item.location || "General Area"}</span>
+                                                        <span
+                                                            className="text-sm text-slate-400">{formatCategory(item.custom_fields?.merch_category)}</span>
                                                     </div>
                                                 ))}
                                             </div>
@@ -477,22 +537,27 @@ export function SnapshotDetailView() {
                         ) : (
                             <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-800">
                                 <thead className="bg-slate-50 dark:bg-slate-800/50">
-                                    <tr className="text-xs font-bold uppercase text-slate-400 tracking-widest">
-                                        <th onClick={() => handleFlatSort("instance_id")} className="px-6 py-4 text-left cursor-pointer">Tag {renderSortArrow("instance_id")}</th>
-                                        <th onClick={() => handleFlatSort("type_id")} className="px-6 py-4 text-left cursor-pointer">Type ID {renderSortArrow("type_id")}</th>
-                                        <th onClick={() => handleFlatSort("asset_name")} className="px-6 py-4 text-left cursor-pointer">Asset {renderSortArrow("asset_name")}</th>
-                                        <th className="px-6 py-4 text-left">Location</th>
-                                    </tr>
+                                <tr className="text-xs font-bold uppercase text-slate-400 tracking-widest">
+                                    <th onClick={() => handleFlatSort("instance_id")}
+                                        className="px-6 py-4 text-left cursor-pointer">Tag {renderSortArrow("instance_id")}</th>
+                                    <th onClick={() => handleFlatSort("type_id")}
+                                        className="px-6 py-4 text-left cursor-pointer">Type
+                                        ID {renderSortArrow("type_id")}</th>
+                                    <th onClick={() => handleFlatSort("asset_name")}
+                                        className="px-6 py-4 text-left cursor-pointer">Asset {renderSortArrow("asset_name")}</th>
+                                    <th className="px-6 py-4 text-left">Location</th>
+                                </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                                    {sortedInstances.map(inst => (
-                                        <tr key={inst.id} onClick={() => setSelectedAsset(inst.asset_details)} className="cursor-pointer hover:bg-indigo-50/30">
-                                            <td className="px-6 py-4 font-mono text-xs text-indigo-600 font-bold">{inst.instance_id}</td>
-                                            <td className="px-6 py-4 font-mono text-xs text-slate-400">{inst.asset_details.type_id}</td>
-                                            <td className="px-6 py-4 font-bold text-slate-900 dark:text-white text-sm">{inst.asset_details.name}</td>
-                                            <td className="px-6 py-4 text-xs font-bold text-slate-500">{inst.location || "—"}</td>
-                                        </tr>
-                                    ))}
+                                {sortedInstances.map(inst => (
+                                    <tr key={inst.id} onClick={() => setSelectedAsset(inst.asset_details)}
+                                        className="cursor-pointer hover:bg-indigo-50/30">
+                                        <td className="px-6 py-4 font-mono text-xs text-indigo-600 font-bold">{inst.instance_id}</td>
+                                        <td className="px-6 py-4 font-mono text-xs text-slate-400">{inst.asset_details.type_id}</td>
+                                        <td className="px-6 py-4 font-bold text-slate-900 dark:text-white text-sm">{inst.asset_details.name}</td>
+                                        <td className="px-6 py-4 text-xs font-bold text-slate-500">{inst.location || "—"}</td>
+                                    </tr>
+                                ))}
                                 </tbody>
                             </table>
                         )}
@@ -500,81 +565,192 @@ export function SnapshotDetailView() {
                 </div>
             )}
 
-            {/* TAB CONTENT: BILL OF MATERIALS (AGGREGATED) */}
+            {/* TAB CONTENT: BILL OF MATERIALS */}
             {activeTab === "bom" && (
-                <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden animate-fadeIn">
+                <div
+                    className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden animate-fadeIn">
+                    <div
+                        className="bg-slate-50/50 dark:bg-slate-800/50 px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row justify-between items-center gap-4">
+                        <h2 className="text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">Assembly
+                            & Parts</h2>
+                        <div className="flex rounded-lg bg-slate-200/50 dark:bg-slate-800 p-1">
+                            <button onClick={() => setBomViewMode("aggregated")}
+                                    className={`px-5 py-1.5 text-xs font-bold uppercase rounded-md transition-all ${bomViewMode === "aggregated" ? "bg-white dark:bg-slate-700 text-indigo-600 shadow-sm" : "text-slate-500"}`}>By
+                                Type
+                            </button>
+                            <button onClick={() => setBomViewMode("instances")}
+                                    className={`px-5 py-1.5 text-xs font-bold uppercase rounded-md transition-all ${bomViewMode === "instances" ? "bg-white dark:bg-slate-700 text-indigo-600 shadow-sm" : "text-slate-500"}`}>Instances
+                            </button>
+                        </div>
+                    </div>
+
                     <div className="overflow-x-auto">
                         <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-800">
-                            <thead className="bg-slate-50 dark:bg-slate-800/50">
-                                <tr className="text-xs font-bold uppercase text-slate-400 dark:text-slate-500 tracking-widest">
-                                    <th className="px-6 py-4 text-left w-16">Role</th>
-                                    <th className="px-6 py-4 text-center w-24">Total Qty</th>
-                                    <th className="px-6 py-4 text-left">Asset Name</th>
-                                    <th className="px-6 py-4 text-left">Manufacturer</th>
-                                    <th className="px-6 py-4 text-left">Model</th>
-                                    <th className="px-6 py-4 text-left w-32">Type ID</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100 dark:divide-slate-800 bg-white dark:bg-slate-900">
-                                {aggregatedBOM.length > 0 ? (
-                                    aggregatedBOM.map((item) => (
-                                        <tr
-                                            key={`${item.assetId}-${item.typeId}`}
-                                            className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
-                                        >
-                                            <td className="px-1 py-3 text-center">
-                                                <span
-                                                    className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-white text-[10px] font-bold cursor-help transition-colors
-                                                    ${item.isComponent
-                                                        ? "bg-blue-400"
-                                                        : "bg-green-500"
-                                                    }`}
-                                                    title={item.isComponent ? `Component of: \n• ${Array.from(item.contributingParents).join("\n• ")}` : "Parent Asset"}
-                                                >
-                                                    {item.isComponent ? "C" : "P"}
-                                                </span>
-                                            </td>
-                                            <td className="px-6 py-3 text-center">
-                                                <span className="inline-flex items-center justify-center min-w-[2rem] px-2 py-1 bg-slate-100 dark:bg-slate-800 rounded-md text-sm font-black text-slate-700 dark:text-slate-300">
-                                                    {item.totalQuantity}
-                                                </span>
-                                            </td>
-                                            <td className="px-6 py-3">
-                                                <div className="text-sm font-medium text-slate-900 dark:text-white">
-                                                    {item.name}
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-3 text-xs text-slate-600 dark:text-slate-400">
-                                                {item.manufacturer}
-                                            </td>
-                                            <td className="px-6 py-3 text-xs text-slate-600 dark:text-slate-400 font-mono">
-                                                {item.model}
-                                            </td>
-                                            <td className="px-6 py-3 font-mono text-xs dark:text-white">
-                                                <button
-                                                    onClick={() => setSelectedAsset(item.originalAsset)}
-                                                    className="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300 hover:underline cursor-pointer font-bold focus:outline-none"
-                                                >
+                            {bomViewMode === "aggregated" ? (
+                                <>
+                                    <thead className="bg-slate-50 dark:bg-slate-800/50">
+                                    <tr className="text-xs font-bold uppercase text-slate-400 dark:text-slate-500 tracking-widest">
+                                        <th className="px-6 py-4 text-left w-16">Role</th>
+                                        <th className="px-6 py-4 text-center w-24">Total Qty</th>
+                                        <th className="px-6 py-4 text-left">Asset Name</th>
+                                        <th className="px-6 py-4 text-left">Manufacturer</th>
+                                        <th className="px-6 py-4 text-left">Model</th>
+                                        <th className="px-6 py-4 text-left w-32">Type ID</th>
+                                    </tr>
+                                    </thead>
+                                    <tbody
+                                        className="divide-y divide-slate-100 dark:divide-slate-800 bg-white dark:bg-slate-900">
+                                    {aggregatedBOM.length > 0 ? (
+                                        aggregatedBOM.map((item) => (
+                                            <tr
+                                                key={`${item.assetId}-${item.typeId}`}
+                                                onClick={() => setSelectedAsset(item.originalAsset)}
+                                                className="text-sm hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer group"
+                                            >
+                                                <td className="px-6 py-3">
+                                                    <span
+                                                        className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-white text-[10px] font-bold cursor-help transition-colors
+                                                        ${item.isComponent ? "bg-indigo-400" : "bg-indigo-600"}`}
+                                                        title={item.isComponent ? `Component of: \n• ${Array.from(item.contributingParents).join("\n• ")}` : "Parent Asset"}
+                                                        onClick={(e) => e.stopPropagation()} // Prevent row click when just checking tooltip
+                                                    >
+                                                        {item.isComponent ? "C" : "P"}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-3 text-center">
+                                                    <span
+                                                        className="inline-flex items-center justify-center min-w-[2rem] px-2 py-1 bg-slate-100 dark:bg-slate-800 rounded-md font-bold text-slate-700 dark:text-slate-300">
+                                                        {item.totalQuantity}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-3">
+                                                    <div
+                                                        className="font-bold text-slate-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                                                        {item.name}
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-3 text-slate-600 dark:text-slate-400">
+                                                    {item.manufacturer}
+                                                </td>
+                                                <td className="px-6 py-3 text-slate-600 dark:text-slate-400 font-mono">
+                                                    {item.model}
+                                                </td>
+                                                <td className="px-6 py-3 font-mono dark:text-white font-bold text-indigo-600 group-hover:underline">
                                                     {item.typeId}
-                                                </button>
+                                                </td>
+                                            </tr>
+                                        ))
+                                    ) : (
+                                        <tr>
+                                            <td colSpan={6}
+                                                className="px-6 py-12 text-center text-slate-400 dark:text-slate-500 text-sm italic">
+                                                No assets found in this snapshot.
                                             </td>
                                         </tr>
-                                    ))
-                                ) : (
-                                    <tr>
-                                        <td colSpan={6} className="px-6 py-12 text-center text-slate-400 dark:text-slate-500 text-sm italic">
-                                            No assets found in this snapshot.
-                                        </td>
+                                    )}
+                                    </tbody>
+                                </>
+                            ) : (
+                                <>
+                                    <thead className="bg-slate-50 dark:bg-slate-800/50">
+                                    <tr className="text-xs font-bold uppercase text-slate-400 dark:text-slate-500 tracking-widest">
+                                        <th className="px-6 py-4 text-left">Instance Tag</th>
+                                        <th className="px-6 py-4 text-left">Type ID</th>
+                                        <th className="px-6 py-4 text-center">Qty</th>
+                                        <th className="px-6 py-4 text-left">Asset / Component</th>
+                                        <th className="px-6 py-4 text-left">Manufacturer</th>
+                                        <th className="px-6 py-4 text-left">Model</th>
                                     </tr>
-                                )}
-                            </tbody>
+                                    </thead>
+                                    <tbody
+                                        className="divide-y divide-slate-100 dark:divide-slate-800 bg-white dark:bg-slate-900">
+                                    {sortedInstances.map((inst) => {
+                                        const details = inst.asset_details;
+                                        const required = details.components?.filter(c => !c.can_add_per_instance) ?? [];
+                                        const optional = inst.optional_components ?? [];
+
+                                        return (
+                                            <Fragment key={inst.id}>
+                                                {/* Parent Asset Row */}
+                                                <tr
+                                                    onClick={() => setSelectedAsset(details)}
+                                                    className="text-sm bg-slate-50 dark:bg-slate-800/20 border-t-2 border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-indigo-50/50 dark:hover:bg-slate-800/60 transition-colors group"
+                                                >
+                                                    <td className="px-6 py-3 font-mono text-indigo-600 dark:text-indigo-400 font-bold">{inst.instance_id}</td>
+                                                    <td className="px-6 py-3 font-mono text-slate-500 dark:text-slate-400 font-bold group-hover:text-indigo-600 dark:group-hover:text-indigo-400 group-hover:underline">
+                                                        {details.type_id}
+                                                    </td>
+                                                    <td className="px-6 py-3 text-center font-bold text-slate-400 dark:text-slate-500">1</td>
+                                                    <td className="px-6 py-3 font-bold text-slate-900 dark:text-white tracking-tight">{details.name}</td>
+                                                    <td className="px-6 py-3 text-slate-600 dark:text-slate-300">{getManufacturerName(details)}</td>
+                                                    <td className="px-6 py-3 text-slate-600 dark:text-slate-300">{details.model}</td>
+                                                </tr>
+
+                                                {/* Required Components */}
+                                                {required.map(comp => {
+                                                    const child = comp?.child_asset;
+                                                    if (!child) return null;
+                                                    return (
+                                                        <tr
+                                                            key={`req-${inst.id}-${comp.id}`}
+                                                            onClick={() => setSelectedAsset(child)}
+                                                            className="text-sm hover:bg-slate-100 dark:hover:bg-slate-800/50 transition-colors opacity-90 cursor-pointer group text-slate-500 dark:text-slate-500"
+                                                        >
+                                                            <td className="text-xs px-6 py-2 font-mono pl-10">
+                                                                ↳ REQUIRED
+                                                            </td>
+                                                            <td className="px-6 py-2 font-mono group-hover:text-indigo-600 group-hover:underline">
+                                                                {child.type_id}
+                                                            </td>
+                                                            <td className="px-6 py-2 text-center font-bold">
+                                                                {comp.quantity_required}
+                                                            </td>
+                                                            <td className="px-6 py-2 pl-10">{child.name}</td>
+                                                            <td className="px-6 py-2">{getManufacturerName(child)}</td>
+                                                            <td className="px-6 py-2">{child.model}</td>
+                                                        </tr>
+                                                    );
+                                                })}
+
+                                                {/* Optional Components */}
+                                                {optional.map(opt => {
+                                                    const child = opt?.asset_component?.child_asset;
+                                                    if (!child) return null;
+                                                    return (
+                                                        <tr
+                                                            key={`opt-${inst.id}-${opt.id}`}
+                                                            onClick={() => setSelectedAsset(child)}
+                                                            className="text-sm hover:bg-indigo-50/50 dark:hover:bg-indigo-900/20 transition-colors cursor-pointer group text-slate-500 dark:text-slate-500"
+                                                        >
+                                                            <td className="px-6 py-2 text-xs font-mono pl-10">
+                                                                ↳ OPTIONAL
+                                                            </td>
+                                                            <td className="px-6 py-2 font-mono group-hover:underline">
+                                                                {child.type_id}
+                                                            </td>
+                                                            <td className="px-6 py-2 text-center font-bold">
+                                                                {opt.quantity}
+                                                            </td>
+                                                            <td className="px-6 py-2 pl-10">{child.name}</td>
+                                                            <td className="px-6 py-2">{getManufacturerName(child)}</td>
+                                                            <td className="px-6 py-2">{child.model}</td>
+                                                        </tr>
+                                                    );
+                                                })}
+                                            </Fragment>
+                                        );
+                                    })}
+                                    </tbody>
+                                </>
+                            )}
                         </table>
                     </div>
                 </div>
             )}
 
             {selectedAsset && (
-                <DetailModal open={!!selectedAsset} item={selectedAsset} title={selectedAsset.name} onClose={() => setSelectedAsset(null)}/>
+                <DetailModal open={!!selectedAsset} item={selectedAsset} title={selectedAsset.name}
+                             onClose={() => setSelectedAsset(null)}/>
             )}
         </div>
     );
