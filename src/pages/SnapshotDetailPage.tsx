@@ -446,12 +446,11 @@ export function SnapshotDetailView() {
                         </div>
                     </div>
 
-                    {/* INVENTORY MANIFEST */}
+                    {/* ASSET SCHEDULE */}
                     <div
                         className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden p-6">
                         <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mb-6">
-                            <h2 className="text-xs font-bold uppercase tracking-widest text-slate-500">Inventory
-                                Manifest</h2>
+                            <h2 className="text-xs font-bold uppercase tracking-widest text-slate-500">Asset Schedule</h2>
                             <div className="flex rounded-lg bg-slate-200/50 dark:bg-slate-800 p-1">
                                 <button onClick={() => setMerchViewMode("grouped")}
                                         className={`px-5 py-1.5 text-xs font-bold uppercase rounded-md transition-all ${merchViewMode === "grouped" ? "bg-white dark:bg-slate-700 text-indigo-600 shadow-sm" : "text-slate-500"}`}>By
@@ -571,8 +570,8 @@ export function SnapshotDetailView() {
                     className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden animate-fadeIn">
                     <div
                         className="bg-slate-50/50 dark:bg-slate-800/50 px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row justify-between items-center gap-4">
-                        <h2 className="text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">Assembly
-                            & Parts</h2>
+                        <h2 className="text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">
+                            Parts List</h2>
                         <div className="flex rounded-lg bg-slate-200/50 dark:bg-slate-800 p-1">
                             <button onClick={() => setBomViewMode("aggregated")}
                                     className={`px-5 py-1.5 text-xs font-bold uppercase rounded-md transition-all ${bomViewMode === "aggregated" ? "bg-white dark:bg-slate-700 text-indigo-600 shadow-sm" : "text-slate-500"}`}>By
