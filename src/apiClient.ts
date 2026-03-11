@@ -1,11 +1,9 @@
+import { getAuthHeaders, handleAuthError } from "./api/authHeaders";
+
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL as string;
-const API_KEY = import.meta.env.VITE_API_KEY as string;
 
 if (!API_BASE_URL) {
   console.warn("API_BASE_URL is not set in env (VITE_API_BASE_URL).");
-}
-if (!API_KEY) {
-  console.warn("API_KEY is not set in env (VITE_API_KEY).");
 }
 
 // Generic helper
@@ -15,8 +13,11 @@ export async function apiFetch<T>(
 ): Promise<T> {
   const url = `${API_BASE_URL}${path}`;
 
+  const authHeaders = getAuthHeaders(true);
   const headers = new Headers(options.headers || {});
-  headers.set("X-API-Key", API_KEY);
+  for (const [key, value] of Object.entries(authHeaders)) {
+    if (!headers.has(key)) headers.set(key, value);
+  }
 
   const response = await fetch(url, {
     ...options,
@@ -24,6 +25,7 @@ export async function apiFetch<T>(
   });
 
   if (!response.ok) {
+    handleAuthError(response);
     const text = await response.text();
     throw new Error(`API error ${response.status}: ${text}`);
   }

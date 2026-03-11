@@ -92,8 +92,9 @@ export interface AssetAttribute {
   unit_type: string;
 }
 
+import { getAuthHeaders } from "./authHeaders";
+
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api";
-const API_KEY = import.meta.env.VITE_API_KEY;
 
 export type FetchAssetsOptions = {
   page?: number;
@@ -103,13 +104,6 @@ export type FetchAssetsOptions = {
   manufacturerName?: string;
   ordering?: string;
 };
-
-function getHeadersObject() {
-  return {
-    "Content-Type": "application/json",
-    "X-API-KEY": API_KEY ?? "",
-  };
-}
 
 /**
  * Fetches a paginated list of assets from the primary API endpoint.
@@ -131,7 +125,7 @@ export async function fetchAssets(
 
   const url = `${API_BASE_URL}/assets/?${params.toString()}`;
 
-  const res = await fetch(url, { headers: getHeadersObject() });
+  const res = await fetch(url, { headers: getAuthHeaders() });
   if (!res.ok) throw new Error(`Failed to fetch assets: ${res.status}`);
   return (await res.json()) as PaginatedResponse<Asset>;
 }
@@ -141,7 +135,7 @@ export async function fetchAssets(
  */
 export async function fetchAssetInstance(id: number): Promise<AssetInstance> {
   const url = `${API_BASE_URL}/instances/${id}/`;
-  const res = await fetch(url, { headers: getHeadersObject() });
+  const res = await fetch(url, { headers: getAuthHeaders() });
   if (!res.ok) throw new Error(`Failed to fetch instance: ${res.status}`);
   return (await res.json()) as AssetInstance;
 }
@@ -151,7 +145,7 @@ export async function fetchAssetInstance(id: number): Promise<AssetInstance> {
  */
 export async function fetchAllCategories(): Promise<AssetCategory[]> {
   const url = `${API_BASE_URL}/assets/all_categories/`;
-  const res = await fetch(url, { headers: getHeadersObject() });
+  const res = await fetch(url, { headers: getAuthHeaders() });
   if (!res.ok) throw new Error(`Failed to fetch categories: ${res.status}`);
   return (await res.json()) as AssetCategory[];
 }
@@ -161,7 +155,7 @@ export async function fetchAllCategories(): Promise<AssetCategory[]> {
  */
 export async function fetchAllManufacturers(): Promise<AssetManufacturer[]> {
   const url = `${API_BASE_URL}/assets/all_manufacturers/`;
-  const res = await fetch(url, { headers: getHeadersObject() });
+  const res = await fetch(url, { headers: getAuthHeaders() });
   if (!res.ok) throw new Error(`Failed to fetch manufacturers: ${res.status}`);
   return (await res.json()) as AssetManufacturer[];
 }
@@ -169,7 +163,7 @@ export async function fetchAllManufacturers(): Promise<AssetManufacturer[]> {
 // --- Asset CRUD ---
 
 export async function fetchAsset(id: number): Promise<Asset> {
-  const res = await fetch(`${API_BASE_URL}/assets/${id}/`, { headers: getHeadersObject() });
+  const res = await fetch(`${API_BASE_URL}/assets/${id}/`, { headers: getAuthHeaders() });
   if (!res.ok) throw new Error(`Failed to fetch asset: ${res.status}`);
   return (await res.json()) as Asset;
 }
@@ -177,7 +171,7 @@ export async function fetchAsset(id: number): Promise<Asset> {
 export async function createAsset(data: FormData): Promise<Asset> {
   const res = await fetch(`${API_BASE_URL}/assets/`, {
     method: "POST",
-    headers: { "X-API-KEY": API_KEY ?? "" },
+    headers: getAuthHeaders(false),
     body: data,
   });
   if (!res.ok) throw new Error(JSON.stringify(await res.json()));
@@ -187,7 +181,7 @@ export async function createAsset(data: FormData): Promise<Asset> {
 export async function updateAsset(id: number, data: FormData): Promise<Asset> {
   const res = await fetch(`${API_BASE_URL}/assets/${id}/`, {
     method: "PATCH",
-    headers: { "X-API-KEY": API_KEY ?? "" },
+    headers: getAuthHeaders(false),
     body: data,
   });
   if (!res.ok) throw new Error(JSON.stringify(await res.json()));
@@ -197,7 +191,7 @@ export async function updateAsset(id: number, data: FormData): Promise<Asset> {
 export async function deleteAsset(id: number): Promise<void> {
   const res = await fetch(`${API_BASE_URL}/assets/${id}/`, {
     method: "DELETE",
-    headers: getHeadersObject(),
+    headers: getAuthHeaders(),
   });
   if (!res.ok) throw new Error(`Failed to delete asset: ${res.status}`);
 }
@@ -205,7 +199,7 @@ export async function deleteAsset(id: number): Promise<void> {
 // --- AssetCategory CRUD ---
 
 export async function fetchCategory(id: number): Promise<AssetCategory> {
-  const res = await fetch(`${API_BASE_URL}/categories/${id}/`, { headers: getHeadersObject() });
+  const res = await fetch(`${API_BASE_URL}/categories/${id}/`, { headers: getAuthHeaders() });
   if (!res.ok) throw new Error(`Failed to fetch category: ${res.status}`);
   return (await res.json()) as AssetCategory;
 }
@@ -213,7 +207,7 @@ export async function fetchCategory(id: number): Promise<AssetCategory> {
 export async function createCategory(data: { name: string; description?: string }): Promise<AssetCategory> {
   const res = await fetch(`${API_BASE_URL}/categories/`, {
     method: "POST",
-    headers: getHeadersObject(),
+    headers: getAuthHeaders(),
     body: JSON.stringify(data),
   });
   if (!res.ok) throw new Error(JSON.stringify(await res.json()));
@@ -223,7 +217,7 @@ export async function createCategory(data: { name: string; description?: string 
 export async function updateCategory(id: number, data: { name?: string; description?: string }): Promise<AssetCategory> {
   const res = await fetch(`${API_BASE_URL}/categories/${id}/`, {
     method: "PATCH",
-    headers: getHeadersObject(),
+    headers: getAuthHeaders(),
     body: JSON.stringify(data),
   });
   if (!res.ok) throw new Error(JSON.stringify(await res.json()));
@@ -233,7 +227,7 @@ export async function updateCategory(id: number, data: { name?: string; descript
 export async function deleteCategory(id: number): Promise<void> {
   const res = await fetch(`${API_BASE_URL}/categories/${id}/`, {
     method: "DELETE",
-    headers: getHeadersObject(),
+    headers: getAuthHeaders(),
   });
   if (!res.ok) throw new Error(`Failed to delete category: ${res.status}`);
 }
@@ -244,13 +238,13 @@ export async function fetchAssetFiles(opts: { page?: number; pageSize?: number }
   const params = new URLSearchParams();
   params.set("page", String(opts.page ?? 1));
   params.set("page_size", String(opts.pageSize ?? 20));
-  const res = await fetch(`${API_BASE_URL}/files/?${params}`, { headers: getHeadersObject() });
+  const res = await fetch(`${API_BASE_URL}/files/?${params}`, { headers: getAuthHeaders() });
   if (!res.ok) throw new Error(`Failed to fetch files: ${res.status}`);
   return (await res.json()) as PaginatedResponse<AssetFile>;
 }
 
 export async function fetchAssetFileRecord(id: number): Promise<AssetFile> {
-  const res = await fetch(`${API_BASE_URL}/files/${id}/`, { headers: getHeadersObject() });
+  const res = await fetch(`${API_BASE_URL}/files/${id}/`, { headers: getAuthHeaders() });
   if (!res.ok) throw new Error(`Failed to fetch file: ${res.status}`);
   return (await res.json()) as AssetFile;
 }
@@ -258,7 +252,7 @@ export async function fetchAssetFileRecord(id: number): Promise<AssetFile> {
 export async function createAssetFile(data: FormData): Promise<AssetFile> {
   const res = await fetch(`${API_BASE_URL}/files/`, {
     method: "POST",
-    headers: { "X-API-KEY": API_KEY ?? "" },
+    headers: getAuthHeaders(false),
     body: data,
   });
   if (!res.ok) throw new Error(JSON.stringify(await res.json()));
@@ -268,7 +262,7 @@ export async function createAssetFile(data: FormData): Promise<AssetFile> {
 export async function updateAssetFile(id: number, data: FormData): Promise<AssetFile> {
   const res = await fetch(`${API_BASE_URL}/files/${id}/`, {
     method: "PATCH",
-    headers: { "X-API-KEY": API_KEY ?? "" },
+    headers: getAuthHeaders(false),
     body: data,
   });
   if (!res.ok) throw new Error(JSON.stringify(await res.json()));
@@ -278,7 +272,7 @@ export async function updateAssetFile(id: number, data: FormData): Promise<Asset
 export async function deleteAssetFile(id: number): Promise<void> {
   const res = await fetch(`${API_BASE_URL}/files/${id}/`, {
     method: "DELETE",
-    headers: getHeadersObject(),
+    headers: getAuthHeaders(),
   });
   if (!res.ok) throw new Error(`Failed to delete file: ${res.status}`);
 }
@@ -286,7 +280,7 @@ export async function deleteAssetFile(id: number): Promise<void> {
 // --- AssetAttribute CRUD ---
 
 export async function fetchAllAttributes(): Promise<AssetAttribute[]> {
-  const res = await fetch(`${API_BASE_URL}/attributes/?page_size=200`, { headers: getHeadersObject() });
+  const res = await fetch(`${API_BASE_URL}/attributes/?page_size=200`, { headers: getAuthHeaders() });
   if (!res.ok) throw new Error(`Failed to fetch attributes: ${res.status}`);
   const data = (await res.json()) as PaginatedResponse<AssetAttribute>;
   return data.results;
@@ -297,13 +291,13 @@ export async function fetchAttributes(opts: { page?: number; pageSize?: number; 
   params.set("page", String(opts.page ?? 1));
   params.set("page_size", String(opts.pageSize ?? 20));
   if (opts.search) params.set("search", opts.search);
-  const res = await fetch(`${API_BASE_URL}/attributes/?${params}`, { headers: getHeadersObject() });
+  const res = await fetch(`${API_BASE_URL}/attributes/?${params}`, { headers: getAuthHeaders() });
   if (!res.ok) throw new Error(`Failed to fetch attributes: ${res.status}`);
   return (await res.json()) as PaginatedResponse<AssetAttribute>;
 }
 
 export async function fetchAttribute(id: number): Promise<AssetAttribute> {
-  const res = await fetch(`${API_BASE_URL}/attributes/${id}/`, { headers: getHeadersObject() });
+  const res = await fetch(`${API_BASE_URL}/attributes/${id}/`, { headers: getAuthHeaders() });
   if (!res.ok) throw new Error(`Failed to fetch attribute: ${res.status}`);
   return (await res.json()) as AssetAttribute;
 }
@@ -311,7 +305,7 @@ export async function fetchAttribute(id: number): Promise<AssetAttribute> {
 export async function createAttribute(data: Omit<AssetAttribute, 'id'>): Promise<AssetAttribute> {
   const res = await fetch(`${API_BASE_URL}/attributes/`, {
     method: "POST",
-    headers: getHeadersObject(),
+    headers: getAuthHeaders(),
     body: JSON.stringify(data),
   });
   if (!res.ok) throw new Error(JSON.stringify(await res.json()));
@@ -321,7 +315,7 @@ export async function createAttribute(data: Omit<AssetAttribute, 'id'>): Promise
 export async function updateAttribute(id: number, data: Partial<Omit<AssetAttribute, 'id'>>): Promise<AssetAttribute> {
   const res = await fetch(`${API_BASE_URL}/attributes/${id}/`, {
     method: "PATCH",
-    headers: getHeadersObject(),
+    headers: getAuthHeaders(),
     body: JSON.stringify(data),
   });
   if (!res.ok) throw new Error(JSON.stringify(await res.json()));
@@ -331,7 +325,7 @@ export async function updateAttribute(id: number, data: Partial<Omit<AssetAttrib
 export async function deleteAttribute(id: number): Promise<void> {
   const res = await fetch(`${API_BASE_URL}/attributes/${id}/`, {
     method: "DELETE",
-    headers: getHeadersObject(),
+    headers: getAuthHeaders(),
   });
   if (!res.ok) throw new Error(`Failed to delete attribute: ${res.status}`);
 }

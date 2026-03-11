@@ -1,10 +1,18 @@
 import {useEffect, useState} from "react";
-import {Link, NavLink} from "react-router-dom";
+import {Link, NavLink, useNavigate} from "react-router-dom";
 import LogoLetter from "../assets/Logo-Letter-1_White_100.png";
+import {useAuth} from "../context/AuthContext";
 
 
 export function Header() {
+    const { user, logout } = useAuth();
+    const navigate = useNavigate();
     const [isOpen, setIsOpen] = useState(false);
+
+    function handleLogout() {
+        logout();
+        navigate("/login", { replace: true });
+    }
 
     // theme: "light" | "dark"
     const [theme, setTheme] = useState<"light" | "dark">(() => {
@@ -159,6 +167,18 @@ export function Header() {
                             {theme === "light" ? "☾" : "☼"}
                         </span>
                     </button>
+
+                    {user && (
+                        <div className="flex items-center gap-2 border-l border-slate-200 dark:border-slate-700 pl-4">
+                            <span className="text-xs text-slate-400 dark:text-slate-500 hidden lg:block">{user.email}</span>
+                            <button
+                                onClick={handleLogout}
+                                className="text-xs font-medium text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition"
+                            >
+                                Sign out
+                            </button>
+                        </div>
+                    )}
                 </div>
 
                 {/* Mobile hamburger */}
@@ -196,6 +216,15 @@ export function Header() {
 		{theme === "light" ? "Dark mode" : "Light mode"}
 	</span>
                     </button>
+
+                    {user && (
+                        <button
+                            onClick={handleLogout}
+                            className="mt-1 w-full text-left text-sm font-medium text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition"
+                        >
+                            Sign out ({user.email})
+                        </button>
+                    )}
 
                 </div>
             )}

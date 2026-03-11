@@ -19,24 +19,15 @@ export type PaginatedResponse<T> = {
   results: T[];
 };
 
+import { getAuthHeaders } from "./authHeaders";
+
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api";
-const API_KEY = import.meta.env.VITE_API_KEY;
 
 type FetchManufacturersOptions = {
   page?: number;
   pageSize?: number;
   search?: string;
 };
-
-/**
- * Helper to construct standardized headers for API requests.
- */
-function getHeadersObject() {
-  return {
-    "Content-Type": "application/json",
-    "X-API-KEY": API_KEY ?? "",
-  };
-}
 
 /**
  * Fetches a paginated list of manufacturers from the backend.
@@ -62,7 +53,7 @@ export async function fetchManufacturers(
 
   try {
     const res = await fetch(url, {
-      headers: getHeadersObject(),
+      headers: getAuthHeaders(),
     });
 
     if (!res.ok) {
@@ -85,7 +76,7 @@ export async function fetchManufacturers(
 
 export async function fetchManufacturer(id: number): Promise<Manufacturer> {
   const res = await fetch(`${API_BASE_URL}/manufacturers/${id}/`, {
-    headers: getHeadersObject(),
+    headers: getAuthHeaders(),
   });
   if (!res.ok) throw new Error(`Failed to fetch manufacturer: ${res.status}`);
   return (await res.json()) as Manufacturer;
@@ -94,7 +85,7 @@ export async function fetchManufacturer(id: number): Promise<Manufacturer> {
 export async function createManufacturer(data: FormData): Promise<Manufacturer> {
   const res = await fetch(`${API_BASE_URL}/manufacturers/`, {
     method: "POST",
-    headers: { "X-API-KEY": API_KEY ?? "" },
+    headers: getAuthHeaders(false),
     body: data,
   });
   if (!res.ok) throw new Error(JSON.stringify(await res.json()));
@@ -104,7 +95,7 @@ export async function createManufacturer(data: FormData): Promise<Manufacturer> 
 export async function updateManufacturer(id: number, data: FormData): Promise<Manufacturer> {
   const res = await fetch(`${API_BASE_URL}/manufacturers/${id}/`, {
     method: "PATCH",
-    headers: { "X-API-KEY": API_KEY ?? "" },
+    headers: getAuthHeaders(false),
     body: data,
   });
   if (!res.ok) throw new Error(JSON.stringify(await res.json()));
@@ -114,7 +105,7 @@ export async function updateManufacturer(id: number, data: FormData): Promise<Ma
 export async function deleteManufacturer(id: number): Promise<void> {
   const res = await fetch(`${API_BASE_URL}/manufacturers/${id}/`, {
     method: "DELETE",
-    headers: getHeadersObject(),
+    headers: getAuthHeaders(),
   });
   if (!res.ok) throw new Error(`Failed to delete manufacturer: ${res.status}`);
 }

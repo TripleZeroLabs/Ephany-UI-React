@@ -8,6 +8,9 @@ import {ProjectsPage} from "./pages/ProjectsPage.tsx";
 import {SnapshotDetailView} from "./pages/SnapshotDetailPage.tsx";
 import {useBuildVersion} from "./hooks/useBuildVersion";
 import {UpdateBanner} from "./components/UpdateBanner";
+import {AuthProvider} from "./context/AuthContext";
+import {ProtectedRoute} from "./components/ProtectedRoute";
+import {LoginPage} from "./pages/LoginPage";
 
 // Form pages
 import {AssetFormPage} from "./pages/AssetFormPage";
@@ -20,72 +23,78 @@ import {ProjectFormPage} from "./pages/ProjectFormPage";
 import {SnapshotFormPage} from "./pages/SnapshotFormPage";
 import {AssetInstanceFormPage} from "./pages/AssetInstanceFormPage";
 
-// New list pages
+// List pages
 import {VendorsPage} from "./pages/VendorsPage";
 import {AssetFilesPage} from "./pages/AssetFilesPage";
 import {AttributesPage} from "./pages/AttributesPage";
 import {CategoriesPage} from "./pages/CategoriesPage";
 
 function App() {
-    // Poll every 60s for a new deploy
     const {current, updateAvailable} = useBuildVersion(60_000);
 
     return (
         <BrowserRouter>
-            <UpdateBanner visible={updateAvailable} version={current?.version}/>
+            <AuthProvider>
+                <UpdateBanner visible={updateAvailable} version={current?.version}/>
 
-            <Header/>
-
-            <main className="min-h-[calc(100vh-theme(spacing.16)-theme(spacing.12))]">
                 <Routes>
-                    {/* Default redirect to assets */}
-                    <Route path="/" element={<Navigate to="/assets" replace/>}/>
+                    {/* Public */}
+                    <Route path="/login" element={<LoginPage/>}/>
 
-                    {/* Library Routes */}
-                    <Route path="/assets" element={<AssetsPage/>}/>
-                    <Route path="/assets/new" element={<AssetFormPage/>}/>
-                    <Route path="/assets/:id/edit" element={<AssetFormPage/>}/>
+                    {/* Everything else is protected */}
+                    <Route path="*" element={
+                        <ProtectedRoute>
+                            <Header/>
+                            <main className="min-h-[calc(100vh-theme(spacing.16)-theme(spacing.12))]">
+                                <Routes>
+                                    <Route path="/" element={<Navigate to="/assets" replace/>}/>
 
-                    <Route path="/manufacturers" element={<ManufacturersPage/>}/>
-                    <Route path="/manufacturers/new" element={<ManufacturerFormPage/>}/>
-                    <Route path="/manufacturers/:id/edit" element={<ManufacturerFormPage/>}/>
+                                    {/* Library */}
+                                    <Route path="/assets" element={<AssetsPage/>}/>
+                                    <Route path="/assets/new" element={<AssetFormPage/>}/>
+                                    <Route path="/assets/:id/edit" element={<AssetFormPage/>}/>
 
-                    <Route path="/categories" element={<CategoriesPage/>}/>
-                    <Route path="/categories/new" element={<CategoryFormPage/>}/>
-                    <Route path="/categories/:id/edit" element={<CategoryFormPage/>}/>
+                                    <Route path="/manufacturers" element={<ManufacturersPage/>}/>
+                                    <Route path="/manufacturers/new" element={<ManufacturerFormPage/>}/>
+                                    <Route path="/manufacturers/:id/edit" element={<ManufacturerFormPage/>}/>
 
-                    <Route path="/attributes" element={<AttributesPage/>}/>
-                    <Route path="/attributes/new" element={<AttributeFormPage/>}/>
-                    <Route path="/attributes/:id/edit" element={<AttributeFormPage/>}/>
+                                    <Route path="/categories" element={<CategoriesPage/>}/>
+                                    <Route path="/categories/new" element={<CategoryFormPage/>}/>
+                                    <Route path="/categories/:id/edit" element={<CategoryFormPage/>}/>
 
-                    <Route path="/files" element={<AssetFilesPage/>}/>
-                    <Route path="/files/new" element={<AssetFileFormPage/>}/>
-                    <Route path="/files/:id/edit" element={<AssetFileFormPage/>}/>
+                                    <Route path="/attributes" element={<AttributesPage/>}/>
+                                    <Route path="/attributes/new" element={<AttributeFormPage/>}/>
+                                    <Route path="/attributes/:id/edit" element={<AttributeFormPage/>}/>
 
-                    <Route path="/vendors" element={<VendorsPage/>}/>
-                    <Route path="/vendors/new" element={<VendorFormPage/>}/>
-                    <Route path="/vendors/:id/edit" element={<VendorFormPage/>}/>
+                                    <Route path="/files" element={<AssetFilesPage/>}/>
+                                    <Route path="/files/new" element={<AssetFileFormPage/>}/>
+                                    <Route path="/files/:id/edit" element={<AssetFileFormPage/>}/>
 
-                    {/* Execution/Project Routes */}
-                    <Route path="/projects" element={<ProjectsPage/>}/>
-                    <Route path="/projects/new" element={<ProjectFormPage/>}/>
-                    <Route path="/projects/:id/edit" element={<ProjectFormPage/>}/>
+                                    <Route path="/vendors" element={<VendorsPage/>}/>
+                                    <Route path="/vendors/new" element={<VendorFormPage/>}/>
+                                    <Route path="/vendors/:id/edit" element={<VendorFormPage/>}/>
 
-                    <Route path="/snapshots/new" element={<SnapshotFormPage/>}/>
-                    <Route path="/snapshots/:id/edit" element={<SnapshotFormPage/>}/>
+                                    {/* Projects */}
+                                    <Route path="/projects" element={<ProjectsPage/>}/>
+                                    <Route path="/projects/new" element={<ProjectFormPage/>}/>
+                                    <Route path="/projects/:id/edit" element={<ProjectFormPage/>}/>
 
-                    {/* Snapshot Detail View (The Instance Browser) */}
-                    <Route path="/snapshots/:id" element={<SnapshotDetailView/>}/>
-                    <Route path="/snapshots/:id/:tab" element={<SnapshotDetailView/>}/>
+                                    <Route path="/snapshots/new" element={<SnapshotFormPage/>}/>
+                                    <Route path="/snapshots/:id/edit" element={<SnapshotFormPage/>}/>
+                                    <Route path="/snapshots/:id" element={<SnapshotDetailView/>}/>
+                                    <Route path="/snapshots/:id/:tab" element={<SnapshotDetailView/>}/>
 
-                    <Route path="/instances/:id/edit" element={<AssetInstanceFormPage/>}/>
+                                    <Route path="/instances/:id/edit" element={<AssetInstanceFormPage/>}/>
 
-                    {/* 404 Catch-all - redirect to assets */}
-                    <Route path="*" element={<Navigate to="/assets" replace/>}/>
+                                    {/* 404 */}
+                                    <Route path="*" element={<Navigate to="/assets" replace/>}/>
+                                </Routes>
+                            </main>
+                            <Footer version={current?.version}/>
+                        </ProtectedRoute>
+                    }/>
                 </Routes>
-            </main>
-
-            <Footer version={current?.version}/>
+            </AuthProvider>
         </BrowserRouter>
     );
 }

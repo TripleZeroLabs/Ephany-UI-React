@@ -24,15 +24,9 @@ export interface PaginatedResponse<T> {
   results: T[];
 }
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api";
-const API_KEY = import.meta.env.VITE_API_KEY;
+import { getAuthHeaders } from "./authHeaders";
 
-function getHeaders() {
-  return {
-    "Content-Type": "application/json",
-    "X-API-KEY": API_KEY ?? "",
-  };
-}
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api";
 
 // --- Vendor CRUD ---
 
@@ -41,13 +35,13 @@ export async function fetchVendors(opts: { page?: number; pageSize?: number; sea
   params.set("page", String(opts.page ?? 1));
   params.set("page_size", String(opts.pageSize ?? 20));
   if (opts.search) params.set("search", opts.search);
-  const res = await fetch(`${API_BASE_URL}/vendors/?${params}`, { headers: getHeaders() });
+  const res = await fetch(`${API_BASE_URL}/vendors/?${params}`, { headers: getAuthHeaders() });
   if (!res.ok) throw new Error(`Failed to fetch vendors: ${res.status}`);
   return (await res.json()) as PaginatedResponse<Vendor>;
 }
 
 export async function fetchVendor(id: number): Promise<Vendor> {
-  const res = await fetch(`${API_BASE_URL}/vendors/${id}/`, { headers: getHeaders() });
+  const res = await fetch(`${API_BASE_URL}/vendors/${id}/`, { headers: getAuthHeaders() });
   if (!res.ok) throw new Error(`Failed to fetch vendor: ${res.status}`);
   return (await res.json()) as Vendor;
 }
@@ -55,7 +49,7 @@ export async function fetchVendor(id: number): Promise<Vendor> {
 export async function createVendor(data: Omit<Vendor, 'id'>): Promise<Vendor> {
   const res = await fetch(`${API_BASE_URL}/vendors/`, {
     method: "POST",
-    headers: getHeaders(),
+    headers: getAuthHeaders(),
     body: JSON.stringify(data),
   });
   if (!res.ok) throw new Error(JSON.stringify(await res.json()));
@@ -65,7 +59,7 @@ export async function createVendor(data: Omit<Vendor, 'id'>): Promise<Vendor> {
 export async function updateVendor(id: number, data: Partial<Omit<Vendor, 'id'>>): Promise<Vendor> {
   const res = await fetch(`${API_BASE_URL}/vendors/${id}/`, {
     method: "PATCH",
-    headers: getHeaders(),
+    headers: getAuthHeaders(),
     body: JSON.stringify(data),
   });
   if (!res.ok) throw new Error(JSON.stringify(await res.json()));
@@ -75,7 +69,7 @@ export async function updateVendor(id: number, data: Partial<Omit<Vendor, 'id'>>
 export async function deleteVendor(id: number): Promise<void> {
   const res = await fetch(`${API_BASE_URL}/vendors/${id}/`, {
     method: "DELETE",
-    headers: getHeaders(),
+    headers: getAuthHeaders(),
   });
   if (!res.ok) throw new Error(`Failed to delete vendor: ${res.status}`);
 }
@@ -88,7 +82,7 @@ export async function fetchVendorProducts(opts: { page?: number; pageSize?: numb
   params.set("page_size", String(opts.pageSize ?? 20));
   if (opts.vendor) params.set("vendor", String(opts.vendor));
   if (opts.asset) params.set("asset", String(opts.asset));
-  const res = await fetch(`${API_BASE_URL}/vendor-products/?${params}`, { headers: getHeaders() });
+  const res = await fetch(`${API_BASE_URL}/vendor-products/?${params}`, { headers: getAuthHeaders() });
   if (!res.ok) throw new Error(`Failed to fetch vendor products: ${res.status}`);
   return (await res.json()) as PaginatedResponse<VendorProduct>;
 }
@@ -96,7 +90,7 @@ export async function fetchVendorProducts(opts: { page?: number; pageSize?: numb
 export async function createVendorProduct(data: { asset_id: number; vendor_id: number; sku?: string; cost: string; lead_time_days?: number; url?: string }): Promise<VendorProduct> {
   const res = await fetch(`${API_BASE_URL}/vendor-products/`, {
     method: "POST",
-    headers: getHeaders(),
+    headers: getAuthHeaders(),
     body: JSON.stringify(data),
   });
   if (!res.ok) throw new Error(JSON.stringify(await res.json()));
@@ -106,7 +100,7 @@ export async function createVendorProduct(data: { asset_id: number; vendor_id: n
 export async function updateVendorProduct(id: number, data: Partial<{ sku: string; cost: string; lead_time_days: number; url: string }>): Promise<VendorProduct> {
   const res = await fetch(`${API_BASE_URL}/vendor-products/${id}/`, {
     method: "PATCH",
-    headers: getHeaders(),
+    headers: getAuthHeaders(),
     body: JSON.stringify(data),
   });
   if (!res.ok) throw new Error(JSON.stringify(await res.json()));
@@ -116,7 +110,7 @@ export async function updateVendorProduct(id: number, data: Partial<{ sku: strin
 export async function deleteVendorProduct(id: number): Promise<void> {
   const res = await fetch(`${API_BASE_URL}/vendor-products/${id}/`, {
     method: "DELETE",
-    headers: getHeaders(),
+    headers: getAuthHeaders(),
   });
   if (!res.ok) throw new Error(`Failed to delete vendor product: ${res.status}`);
 }
