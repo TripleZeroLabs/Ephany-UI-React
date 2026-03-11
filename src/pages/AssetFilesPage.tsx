@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { DataTable, type ColumnDef } from "../components/DataTable.tsx";
-import { FiltersPanel } from "../components/FiltersPanel.tsx";
 import { fetchAssetFiles, type AssetFile } from "../api/assets.ts";
 import { usePageTitle } from "../hooks/usePageTitle.ts";
 

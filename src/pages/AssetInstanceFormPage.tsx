@@ -26,7 +26,7 @@ export function AssetInstanceFormPage() {
   const [customFields, setCustomFields] = useState<Record<string, string>>({});
   const [attributes, setAttributes] = useState<AssetAttribute[]>([]);
   const [assetName, setAssetName] = useState("");
-  const [snapshotName, setSnapshotName] = useState("");
+  const [snapshotName] = useState("");
   const [snapshotId, setSnapshotId] = useState<number | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
