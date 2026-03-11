@@ -384,6 +384,12 @@ export function SnapshotDetailView() {
                         <h1 className="text-2xl text-slate-800 dark:text-white font-bold tracking-tight">{snapshot.name}</h1>
                         <span
                             className="text-xs font-medium text-slate-400 dark:text-slate-500">{new Date(snapshot.date).toLocaleDateString()}</span>
+                        <button
+                            onClick={() => navigate(`/snapshots/${snapshot.id}/edit`)}
+                            className="text-xs px-2 py-1 rounded border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                        >
+                            Edit Snapshot
+                        </button>
                     </div>
                 </div>
             </div>
@@ -555,6 +561,14 @@ export function SnapshotDetailView() {
                                         <td className="px-6 py-4 font-mono text-xs text-slate-400">{inst.asset_details.type_id}</td>
                                         <td className="px-6 py-4 font-bold text-slate-900 dark:text-white text-sm">{inst.asset_details.name}</td>
                                         <td className="px-6 py-4 text-xs font-bold text-slate-500">{inst.location || "—"}</td>
+                                        <td className="px-6 py-4">
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); navigate(`/instances/${inst.id}/edit`); }}
+                                                className="text-xs px-2 py-1 rounded border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                                            >
+                                                Edit
+                                            </button>
+                                        </td>
                                     </tr>
                                 ))}
                                 </tbody>

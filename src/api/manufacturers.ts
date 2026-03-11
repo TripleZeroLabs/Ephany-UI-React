@@ -82,3 +82,39 @@ export async function fetchManufacturers(
     throw err;
   }
 }
+
+export async function fetchManufacturer(id: number): Promise<Manufacturer> {
+  const res = await fetch(`${API_BASE_URL}/manufacturers/${id}/`, {
+    headers: getHeadersObject(),
+  });
+  if (!res.ok) throw new Error(`Failed to fetch manufacturer: ${res.status}`);
+  return (await res.json()) as Manufacturer;
+}
+
+export async function createManufacturer(data: FormData): Promise<Manufacturer> {
+  const res = await fetch(`${API_BASE_URL}/manufacturers/`, {
+    method: "POST",
+    headers: { "X-API-KEY": API_KEY ?? "" },
+    body: data,
+  });
+  if (!res.ok) throw new Error(JSON.stringify(await res.json()));
+  return (await res.json()) as Manufacturer;
+}
+
+export async function updateManufacturer(id: number, data: FormData): Promise<Manufacturer> {
+  const res = await fetch(`${API_BASE_URL}/manufacturers/${id}/`, {
+    method: "PATCH",
+    headers: { "X-API-KEY": API_KEY ?? "" },
+    body: data,
+  });
+  if (!res.ok) throw new Error(JSON.stringify(await res.json()));
+  return (await res.json()) as Manufacturer;
+}
+
+export async function deleteManufacturer(id: number): Promise<void> {
+  const res = await fetch(`${API_BASE_URL}/manufacturers/${id}/`, {
+    method: "DELETE",
+    headers: getHeadersObject(),
+  });
+  if (!res.ok) throw new Error(`Failed to delete manufacturer: ${res.status}`);
+}

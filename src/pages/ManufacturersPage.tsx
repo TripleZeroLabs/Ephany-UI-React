@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { DataTable, type ColumnDef } from "../components/DataTable.tsx";
 import { FiltersPanel } from "../components/FiltersPanel.tsx";
 import { fetchManufacturers, type Manufacturer } from "../api/manufacturers.ts";
@@ -6,6 +7,7 @@ import { usePageTitle } from "../hooks/usePageTitle.ts";
 
 export function ManufacturersPage() {
   usePageTitle("Manufacturers");
+  const navigate = useNavigate();
 
   // Data state
   const [manufacturers, setManufacturers] = useState<Manufacturer[]>([]);
@@ -89,7 +91,7 @@ export function ManufacturersPage() {
           <div className="h-8 w-8 rounded bg-slate-100 dark:bg-slate-800" />
         ),
     },
-    { key: "name", header: "Company Name" },
+    { key: "name", header: "Company Name", sortable: true },
     {
       key: "url",
       header: "Website",
@@ -107,6 +109,18 @@ export function ManufacturersPage() {
         ) : (
           <span className="text-slate-400">—</span>
         ),
+    },
+    {
+      key: "id",
+      header: "",
+      render: (m) => (
+        <button
+          onClick={(e) => { e.stopPropagation(); navigate(`/manufacturers/${m.id}/edit`); }}
+          className="text-xs px-2 py-1 rounded border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+        >
+          Edit
+        </button>
+      ),
     },
   ];
 
@@ -183,11 +197,19 @@ export function ManufacturersPage() {
 
   return (
     <div>
-      <FiltersPanel
-        searchValue={searchTerm}
-        onSearchChange={handleSearchChange}
-        searchPlaceholder="Search manufacturers…"
-      />
+      <div className="flex items-center justify-between px-4 pt-4">
+        <FiltersPanel
+          searchValue={searchTerm}
+          onSearchChange={handleSearchChange}
+          searchPlaceholder="Search manufacturers…"
+        />
+        <button
+          onClick={() => navigate("/manufacturers/new")}
+          className="ml-4 shrink-0 px-3 py-2 text-sm font-medium rounded-md bg-indigo-600 hover:bg-indigo-700 text-white transition-colors"
+        >
+          + New Manufacturer
+        </button>
+      </div>
 
       <PaginationBar />
 

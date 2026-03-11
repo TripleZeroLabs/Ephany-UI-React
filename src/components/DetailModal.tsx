@@ -5,10 +5,11 @@ type DetailModalProps<T> = {
   open: boolean;
   item: T | null;
   onClose: () => void;
+  onEdit?: () => void;
   title?: string;
 };
 
-export function DetailModal<T>({ open, item, onClose, title }: DetailModalProps<T>) {
+export function DetailModal<T>({ open, item, onClose, onEdit, title }: DetailModalProps<T>) {
   // State for handling nested modal recursion
   const [subItem, setSubItem] = useState<any | null>(null);
 
@@ -365,7 +366,12 @@ export function DetailModal<T>({ open, item, onClose, title }: DetailModalProps<
               </div>
             </div>
           </div>
-          <div className="flex justify-end border-t border-slate-200 bg-slate-50 px-6 py-4 dark:border-slate-700 dark:bg-slate-800/50 rounded-b-lg">
+          <div className="flex items-center justify-between border-t border-slate-200 bg-slate-50 px-6 py-4 dark:border-slate-700 dark:bg-slate-800/50 rounded-b-lg">
+            <div>
+              {onEdit && (
+                <button onClick={onEdit} className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-colors">Edit</button>
+              )}
+            </div>
             <button onClick={onClose} className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600 transition-colors">Close</button>
           </div>
         </div>

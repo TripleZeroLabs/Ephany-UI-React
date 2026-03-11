@@ -168,3 +168,105 @@ export async function fetchInstancesForSnapshot(
     const data = (await res.json()) as PaginatedResponse<AssetInstance>;
     return data.results;
 }
+
+// --- Project CRUD ---
+
+export async function createProject(data: FormData): Promise<Project> {
+    const res = await fetch(`${API_BASE_URL}/projects/`, {
+        method: "POST",
+        headers: { "X-API-KEY": API_KEY ?? "" },
+        body: data,
+    });
+    if (!res.ok) throw new Error(JSON.stringify(await res.json()));
+    return (await res.json()) as Project;
+}
+
+export async function updateProject(id: number, data: FormData): Promise<Project> {
+    const res = await fetch(`${API_BASE_URL}/projects/${id}/`, {
+        method: "PATCH",
+        headers: { "X-API-KEY": API_KEY ?? "" },
+        body: data,
+    });
+    if (!res.ok) throw new Error(JSON.stringify(await res.json()));
+    return (await res.json()) as Project;
+}
+
+export async function deleteProject(id: number): Promise<void> {
+    const res = await fetch(`${API_BASE_URL}/projects/${id}/`, {
+        method: "DELETE",
+        headers: getHeadersObject(),
+    });
+    if (!res.ok) throw new Error(`Failed to delete project: ${res.status}`);
+}
+
+// --- Snapshot CRUD ---
+
+export async function fetchSnapshot(id: number): Promise<Snapshot> {
+    const res = await fetch(`${API_BASE_URL}/snapshots/${id}/`, { headers: getHeadersObject() });
+    if (!res.ok) throw new Error(`Failed to fetch snapshot: ${res.status}`);
+    return (await res.json()) as Snapshot;
+}
+
+export async function createSnapshot(data: { project: number; name: string; date: string }): Promise<Snapshot> {
+    const res = await fetch(`${API_BASE_URL}/snapshots/`, {
+        method: "POST",
+        headers: getHeadersObject(),
+        body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error(JSON.stringify(await res.json()));
+    return (await res.json()) as Snapshot;
+}
+
+export async function updateSnapshot(id: number, data: Partial<{ project: number; name: string; date: string }>): Promise<Snapshot> {
+    const res = await fetch(`${API_BASE_URL}/snapshots/${id}/`, {
+        method: "PATCH",
+        headers: getHeadersObject(),
+        body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error(JSON.stringify(await res.json()));
+    return (await res.json()) as Snapshot;
+}
+
+export async function deleteSnapshot(id: number): Promise<void> {
+    const res = await fetch(`${API_BASE_URL}/snapshots/${id}/`, {
+        method: "DELETE",
+        headers: getHeadersObject(),
+    });
+    if (!res.ok) throw new Error(`Failed to delete snapshot: ${res.status}`);
+}
+
+// --- AssetInstance CRUD ---
+
+export async function fetchInstance(id: number): Promise<AssetInstance> {
+    const res = await fetch(`${API_BASE_URL}/instances/${id}/`, { headers: getHeadersObject() });
+    if (!res.ok) throw new Error(`Failed to fetch instance: ${res.status}`);
+    return (await res.json()) as AssetInstance;
+}
+
+export async function createInstance(data: { snapshot: number; asset: number; instance_id?: string; location?: string; custom_fields?: Record<string, unknown> }): Promise<AssetInstance> {
+    const res = await fetch(`${API_BASE_URL}/instances/`, {
+        method: "POST",
+        headers: getHeadersObject(),
+        body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error(JSON.stringify(await res.json()));
+    return (await res.json()) as AssetInstance;
+}
+
+export async function updateInstance(id: number, data: Partial<{ instance_id: string; location: string; custom_fields: Record<string, unknown> }>): Promise<AssetInstance> {
+    const res = await fetch(`${API_BASE_URL}/instances/${id}/`, {
+        method: "PATCH",
+        headers: getHeadersObject(),
+        body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error(JSON.stringify(await res.json()));
+    return (await res.json()) as AssetInstance;
+}
+
+export async function deleteInstance(id: number): Promise<void> {
+    const res = await fetch(`${API_BASE_URL}/instances/${id}/`, {
+        method: "DELETE",
+        headers: getHeadersObject(),
+    });
+    if (!res.ok) throw new Error(`Failed to delete instance: ${res.status}`);
+}

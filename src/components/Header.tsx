@@ -80,6 +80,62 @@ export function Header() {
                         </NavLink>
 
                         <NavLink
+                            to="/categories"
+                            onClick={closeMenu}
+                            className={({isActive}) =>
+                                `text-sm font-medium ${
+                                    isActive
+                                        ? "text-slate-900 dark:text-white"
+                                        : "text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white"
+                                }`
+                            }
+                        >
+                            Categories
+                        </NavLink>
+
+                        <NavLink
+                            to="/attributes"
+                            onClick={closeMenu}
+                            className={({isActive}) =>
+                                `text-sm font-medium ${
+                                    isActive
+                                        ? "text-slate-900 dark:text-white"
+                                        : "text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white"
+                                }`
+                            }
+                        >
+                            Attributes
+                        </NavLink>
+
+                        <NavLink
+                            to="/vendors"
+                            onClick={closeMenu}
+                            className={({isActive}) =>
+                                `text-sm font-medium ${
+                                    isActive
+                                        ? "text-slate-900 dark:text-white"
+                                        : "text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white"
+                                }`
+                            }
+                        >
+                            Vendors
+                        </NavLink>
+
+                        <NavLink
+                            to="/files"
+                            onClick={closeMenu}
+                            className={({isActive}) =>
+                                `text-sm font-medium ${
+                                    isActive
+                                        ? "text-slate-900 dark:text-white"
+                                        : "text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white"
+                                }`
+                            }
+                        >
+                            Files
+                        </NavLink>
+
+                        <NavLink
                             to="/projects"
                             onClick={closeMenu}
                             className={({isActive}) =>
@@ -120,27 +176,13 @@ export function Header() {
             {isOpen && (
                 <div
                     className="space-y-3 border-t border-slate-200 bg-white px-4 py-3 dark:border-slate-700 dark:bg-slate-800 sm:hidden">
-                    <NavLink
-                        to="/assets"
-                        onClick={closeMenu}
-                        className="block text-sm font-medium text-slate-700 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white"
-                    >
-                        Assets
-                    </NavLink>
-                    <NavLink
-                        to="/manufacturers"
-                        onClick={closeMenu}
-                        className="block text-sm font-medium text-slate-700 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white"
-                    >
-                        Manufacturers
-                    </NavLink>
-                    <NavLink
-                        to="/projects"
-                        onClick={closeMenu}
-                        className="block text-sm font-medium text-slate-700 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white"
-                    >
-                        Projects
-                    </NavLink>
+                    <NavLink to="/assets" onClick={closeMenu} className="block text-sm font-medium text-slate-700 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white">Assets</NavLink>
+                    <NavLink to="/manufacturers" onClick={closeMenu} className="block text-sm font-medium text-slate-700 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white">Manufacturers</NavLink>
+                    <NavLink to="/categories" onClick={closeMenu} className="block text-sm font-medium text-slate-700 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white">Categories</NavLink>
+                    <NavLink to="/attributes" onClick={closeMenu} className="block text-sm font-medium text-slate-700 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white">Attributes</NavLink>
+                    <NavLink to="/vendors" onClick={closeMenu} className="block text-sm font-medium text-slate-700 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white">Vendors</NavLink>
+                    <NavLink to="/files" onClick={closeMenu} className="block text-sm font-medium text-slate-700 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white">Files</NavLink>
+                    <NavLink to="/projects" onClick={closeMenu} className="block text-sm font-medium text-slate-700 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white">Projects</NavLink>
 
                     <button
                         onClick={toggleTheme}

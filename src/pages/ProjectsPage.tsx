@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { DataTable, type ColumnDef } from "../components/DataTable.tsx";
 import { FiltersPanel } from "../components/FiltersPanel.tsx";
 import { fetchProjects, type Project } from "../api/projects.ts";
@@ -13,6 +14,7 @@ interface SortConfig {
 
 export function ProjectsPage() {
   usePageTitle("Projects");
+  const navigate = useNavigate();
 
   const [projects, setProjects] = useState<Project[]>([]);
   const [totalCount, setTotalCount] = useState(0);
@@ -126,6 +128,18 @@ export function ProjectsPage() {
         );
       },
     },
+    {
+      key: "id",
+      header: "",
+      render: (p: Project) => (
+        <button
+          onClick={(e) => { e.stopPropagation(); navigate(`/projects/${p.id}/edit`); }}
+          className="text-xs px-2 py-1 rounded border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+        >
+          Edit
+        </button>
+      ),
+    },
   ];
 
   const PaginationBar = () => {
@@ -168,14 +182,22 @@ export function ProjectsPage() {
 
   return (
     <div className="space-y-1">
-      <FiltersPanel
-        searchValue={searchTerm}
-        onSearchChange={(val) => {
-          setPage(1);
-          setSearchTerm(val);
-        }}
-        searchPlaceholder="Search projects by name or job ID..."
-      />
+      <div className="flex items-center justify-between px-4 pt-4">
+        <FiltersPanel
+          searchValue={searchTerm}
+          onSearchChange={(val) => {
+            setPage(1);
+            setSearchTerm(val);
+          }}
+          searchPlaceholder="Search projects by name or job ID..."
+        />
+        <button
+          onClick={() => navigate("/projects/new")}
+          className="ml-4 shrink-0 px-3 py-2 text-sm font-medium rounded-md bg-indigo-600 hover:bg-indigo-700 text-white transition-colors"
+        >
+          + New Project
+        </button>
+      </div>
 
       <PaginationBar />
 
