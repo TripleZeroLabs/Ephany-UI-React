@@ -279,7 +279,7 @@ export function AssetsPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between px-4 pt-4">
+      <div className="flex items-center justify-between pt-4">
         <FiltersPanel
           searchValue={searchTerm}
           onSearchChange={handleSearchChange}

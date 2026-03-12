@@ -1,3 +1,7 @@
+import { getAuthHeaders } from "./authHeaders";
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api";
+
 export interface Vendor {
   id: number;
   name: string;
@@ -23,10 +27,6 @@ export interface PaginatedResponse<T> {
   previous: string | null;
   results: T[];
 }
-
-import { getAuthHeaders } from "./authHeaders";
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api";
 
 // --- Vendor CRUD ---
 

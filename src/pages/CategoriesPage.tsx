@@ -80,7 +80,7 @@ export function CategoriesPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between px-4 pt-4">
+      <div className="flex items-center justify-between pt-4">
         <FiltersPanel searchValue={searchTerm} onSearchChange={(v) => setSearchTerm(v)} searchPlaceholder="Search categories…" />
         <button onClick={() => navigate("/categories/new")} className="ml-4 shrink-0 px-3 py-2 text-sm font-medium rounded-md bg-indigo-600 hover:bg-indigo-700 text-white transition-colors">+ New Category</button>
       </div>

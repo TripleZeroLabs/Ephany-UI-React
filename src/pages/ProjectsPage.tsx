@@ -182,7 +182,7 @@ export function ProjectsPage() {
 
   return (
     <div className="space-y-1">
-      <div className="flex items-center justify-between px-4 pt-4">
+      <div className="flex items-center justify-between pt-4">
         <FiltersPanel
           searchValue={searchTerm}
           onSearchChange={(val) => {
