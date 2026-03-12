@@ -1,16 +1,25 @@
 /**
- * Returns Authorization header using the stored DRF token.
+ * Returns Authorization header using the stored DRF token,
+ * or falls back to X-API-Key from the environment.
  * Pass json=false for FormData requests (browser sets Content-Type + boundary).
  */
 export function getAuthHeaders(json = true): Record<string, string> {
   const token = localStorage.getItem("authToken");
   const headers: Record<string, string> = {};
+
   if (token) {
     headers["Authorization"] = `Token ${token}`;
+  } else {
+    const apiKey = import.meta.env.VITE_API_KEY as string;
+    if (apiKey) {
+      headers["X-API-Key"] = apiKey;
+    }
   }
+
   if (json) {
     headers["Content-Type"] = "application/json";
   }
+
   return headers;
 }
 
