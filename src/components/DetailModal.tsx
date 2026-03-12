@@ -172,7 +172,20 @@ export function DetailModal<T>({ open, item, onClose, onEdit, title }: DetailMod
 
     const rows = Object.entries(obj).map(([k, v]) => ({
       key: k,
-      value: formatValue(v, k),
+      value: Array.isArray(v)
+        ? (
+          <div className="flex flex-wrap gap-1 py-0.5">
+            {(v as unknown[]).map((item, i) => (
+              <span
+                key={i}
+                className="inline-flex items-center rounded-full bg-indigo-50 px-2.5 py-0.5 text-[11px] font-medium text-indigo-700 ring-1 ring-inset ring-indigo-200 dark:bg-indigo-900/30 dark:text-indigo-300 dark:ring-indigo-700"
+              >
+                {String(item)}
+              </span>
+            ))}
+          </div>
+        )
+        : formatValue(v, k),
     }));
     return renderSection("Custom Fields", rows);
   };
