@@ -92,7 +92,7 @@ export interface AssetAttribute {
   unit_type: string;
 }
 
-import { getAuthHeaders } from "./authHeaders";
+import { getAuthHeaders, handleAuthError } from "./authHeaders";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api";
 
@@ -126,7 +126,10 @@ export async function fetchAssets(
   const url = `${API_BASE_URL}/assets/?${params.toString()}`;
 
   const res = await fetch(url, { headers: getAuthHeaders() });
-  if (!res.ok) throw new Error(`Failed to fetch assets: ${res.status}`);
+  if (!res.ok) {
+    handleAuthError(res);
+    throw new Error(`Failed to fetch assets: ${res.status}`);
+  }
   return (await res.json()) as PaginatedResponse<Asset>;
 }
 
@@ -136,7 +139,10 @@ export async function fetchAssets(
 export async function fetchAssetInstance(id: number): Promise<AssetInstance> {
   const url = `${API_BASE_URL}/instances/${id}/`;
   const res = await fetch(url, { headers: getAuthHeaders() });
-  if (!res.ok) throw new Error(`Failed to fetch instance: ${res.status}`);
+  if (!res.ok) {
+    handleAuthError(res);
+    throw new Error(`Failed to fetch instance: ${res.status}`);
+  }
   return (await res.json()) as AssetInstance;
 }
 
@@ -146,7 +152,10 @@ export async function fetchAssetInstance(id: number): Promise<AssetInstance> {
 export async function fetchAllCategories(): Promise<AssetCategory[]> {
   const url = `${API_BASE_URL}/assets/all_categories/`;
   const res = await fetch(url, { headers: getAuthHeaders() });
-  if (!res.ok) throw new Error(`Failed to fetch categories: ${res.status}`);
+  if (!res.ok) {
+    handleAuthError(res);
+    throw new Error(`Failed to fetch categories: ${res.status}`);
+  }
   return (await res.json()) as AssetCategory[];
 }
 
@@ -156,7 +165,10 @@ export async function fetchAllCategories(): Promise<AssetCategory[]> {
 export async function fetchAllManufacturers(): Promise<AssetManufacturer[]> {
   const url = `${API_BASE_URL}/assets/all_manufacturers/`;
   const res = await fetch(url, { headers: getAuthHeaders() });
-  if (!res.ok) throw new Error(`Failed to fetch manufacturers: ${res.status}`);
+  if (!res.ok) {
+    handleAuthError(res);
+    throw new Error(`Failed to fetch manufacturers: ${res.status}`);
+  }
   return (await res.json()) as AssetManufacturer[];
 }
 
@@ -164,7 +176,10 @@ export async function fetchAllManufacturers(): Promise<AssetManufacturer[]> {
 
 export async function fetchAsset(id: number): Promise<Asset> {
   const res = await fetch(`${API_BASE_URL}/assets/${id}/`, { headers: getAuthHeaders() });
-  if (!res.ok) throw new Error(`Failed to fetch asset: ${res.status}`);
+  if (!res.ok) {
+    handleAuthError(res);
+    throw new Error(`Failed to fetch asset: ${res.status}`);
+  }
   return (await res.json()) as Asset;
 }
 
@@ -174,7 +189,10 @@ export async function createAsset(data: FormData): Promise<Asset> {
     headers: getAuthHeaders(false),
     body: data,
   });
-  if (!res.ok) throw new Error(JSON.stringify(await res.json()));
+  if (!res.ok) {
+    handleAuthError(res);
+    throw new Error(JSON.stringify(await res.json()));
+  }
   return (await res.json()) as Asset;
 }
 
@@ -184,7 +202,10 @@ export async function updateAsset(id: number, data: FormData): Promise<Asset> {
     headers: getAuthHeaders(false),
     body: data,
   });
-  if (!res.ok) throw new Error(JSON.stringify(await res.json()));
+  if (!res.ok) {
+    handleAuthError(res);
+    throw new Error(JSON.stringify(await res.json()));
+  }
   return (await res.json()) as Asset;
 }
 
@@ -193,14 +214,20 @@ export async function deleteAsset(id: number): Promise<void> {
     method: "DELETE",
     headers: getAuthHeaders(),
   });
-  if (!res.ok) throw new Error(`Failed to delete asset: ${res.status}`);
+  if (!res.ok) {
+    handleAuthError(res);
+    throw new Error(`Failed to delete asset: ${res.status}`);
+  }
 }
 
 // --- AssetCategory CRUD ---
 
 export async function fetchCategory(id: number): Promise<AssetCategory> {
   const res = await fetch(`${API_BASE_URL}/categories/${id}/`, { headers: getAuthHeaders() });
-  if (!res.ok) throw new Error(`Failed to fetch category: ${res.status}`);
+  if (!res.ok) {
+    handleAuthError(res);
+    throw new Error(`Failed to fetch category: ${res.status}`);
+  }
   return (await res.json()) as AssetCategory;
 }
 
@@ -210,7 +237,10 @@ export async function createCategory(data: { name: string; description?: string 
     headers: getAuthHeaders(),
     body: JSON.stringify(data),
   });
-  if (!res.ok) throw new Error(JSON.stringify(await res.json()));
+  if (!res.ok) {
+    handleAuthError(res);
+    throw new Error(JSON.stringify(await res.json()));
+  }
   return (await res.json()) as AssetCategory;
 }
 
@@ -220,7 +250,10 @@ export async function updateCategory(id: number, data: { name?: string; descript
     headers: getAuthHeaders(),
     body: JSON.stringify(data),
   });
-  if (!res.ok) throw new Error(JSON.stringify(await res.json()));
+  if (!res.ok) {
+    handleAuthError(res);
+    throw new Error(JSON.stringify(await res.json()));
+  }
   return (await res.json()) as AssetCategory;
 }
 
@@ -229,7 +262,10 @@ export async function deleteCategory(id: number): Promise<void> {
     method: "DELETE",
     headers: getAuthHeaders(),
   });
-  if (!res.ok) throw new Error(`Failed to delete category: ${res.status}`);
+  if (!res.ok) {
+    handleAuthError(res);
+    throw new Error(`Failed to delete category: ${res.status}`);
+  }
 }
 
 // --- AssetFile CRUD ---
@@ -239,13 +275,19 @@ export async function fetchAssetFiles(opts: { page?: number; pageSize?: number }
   params.set("page", String(opts.page ?? 1));
   params.set("page_size", String(opts.pageSize ?? 20));
   const res = await fetch(`${API_BASE_URL}/files/?${params}`, { headers: getAuthHeaders() });
-  if (!res.ok) throw new Error(`Failed to fetch files: ${res.status}`);
+  if (!res.ok) {
+    handleAuthError(res);
+    throw new Error(`Failed to fetch files: ${res.status}`);
+  }
   return (await res.json()) as PaginatedResponse<AssetFile>;
 }
 
 export async function fetchAssetFileRecord(id: number): Promise<AssetFile> {
   const res = await fetch(`${API_BASE_URL}/files/${id}/`, { headers: getAuthHeaders() });
-  if (!res.ok) throw new Error(`Failed to fetch file: ${res.status}`);
+  if (!res.ok) {
+    handleAuthError(res);
+    throw new Error(`Failed to fetch file: ${res.status}`);
+  }
   return (await res.json()) as AssetFile;
 }
 
@@ -255,7 +297,10 @@ export async function createAssetFile(data: FormData): Promise<AssetFile> {
     headers: getAuthHeaders(false),
     body: data,
   });
-  if (!res.ok) throw new Error(JSON.stringify(await res.json()));
+  if (!res.ok) {
+    handleAuthError(res);
+    throw new Error(JSON.stringify(await res.json()));
+  }
   return (await res.json()) as AssetFile;
 }
 
@@ -265,7 +310,10 @@ export async function updateAssetFile(id: number, data: FormData): Promise<Asset
     headers: getAuthHeaders(false),
     body: data,
   });
-  if (!res.ok) throw new Error(JSON.stringify(await res.json()));
+  if (!res.ok) {
+    handleAuthError(res);
+    throw new Error(JSON.stringify(await res.json()));
+  }
   return (await res.json()) as AssetFile;
 }
 
@@ -274,14 +322,20 @@ export async function deleteAssetFile(id: number): Promise<void> {
     method: "DELETE",
     headers: getAuthHeaders(),
   });
-  if (!res.ok) throw new Error(`Failed to delete file: ${res.status}`);
+  if (!res.ok) {
+    handleAuthError(res);
+    throw new Error(`Failed to delete file: ${res.status}`);
+  }
 }
 
 // --- AssetAttribute CRUD ---
 
 export async function fetchAllAttributes(): Promise<AssetAttribute[]> {
   const res = await fetch(`${API_BASE_URL}/attributes/?page_size=200`, { headers: getAuthHeaders() });
-  if (!res.ok) throw new Error(`Failed to fetch attributes: ${res.status}`);
+  if (!res.ok) {
+    handleAuthError(res);
+    throw new Error(`Failed to fetch attributes: ${res.status}`);
+  }
   const data = (await res.json()) as PaginatedResponse<AssetAttribute>;
   return data.results;
 }
@@ -292,13 +346,19 @@ export async function fetchAttributes(opts: { page?: number; pageSize?: number; 
   params.set("page_size", String(opts.pageSize ?? 20));
   if (opts.search) params.set("search", opts.search);
   const res = await fetch(`${API_BASE_URL}/attributes/?${params}`, { headers: getAuthHeaders() });
-  if (!res.ok) throw new Error(`Failed to fetch attributes: ${res.status}`);
+  if (!res.ok) {
+    handleAuthError(res);
+    throw new Error(`Failed to fetch attributes: ${res.status}`);
+  }
   return (await res.json()) as PaginatedResponse<AssetAttribute>;
 }
 
 export async function fetchAttribute(id: number): Promise<AssetAttribute> {
   const res = await fetch(`${API_BASE_URL}/attributes/${id}/`, { headers: getAuthHeaders() });
-  if (!res.ok) throw new Error(`Failed to fetch attribute: ${res.status}`);
+  if (!res.ok) {
+    handleAuthError(res);
+    throw new Error(`Failed to fetch attribute: ${res.status}`);
+  }
   return (await res.json()) as AssetAttribute;
 }
 
@@ -308,7 +368,10 @@ export async function createAttribute(data: Omit<AssetAttribute, 'id'>): Promise
     headers: getAuthHeaders(),
     body: JSON.stringify(data),
   });
-  if (!res.ok) throw new Error(JSON.stringify(await res.json()));
+  if (!res.ok) {
+    handleAuthError(res);
+    throw new Error(JSON.stringify(await res.json()));
+  }
   return (await res.json()) as AssetAttribute;
 }
 
@@ -318,7 +381,10 @@ export async function updateAttribute(id: number, data: Partial<Omit<AssetAttrib
     headers: getAuthHeaders(),
     body: JSON.stringify(data),
   });
-  if (!res.ok) throw new Error(JSON.stringify(await res.json()));
+  if (!res.ok) {
+    handleAuthError(res);
+    throw new Error(JSON.stringify(await res.json()));
+  }
   return (await res.json()) as AssetAttribute;
 }
 
@@ -327,5 +393,8 @@ export async function deleteAttribute(id: number): Promise<void> {
     method: "DELETE",
     headers: getAuthHeaders(),
   });
-  if (!res.ok) throw new Error(`Failed to delete attribute: ${res.status}`);
+  if (!res.ok) {
+    handleAuthError(res);
+    throw new Error(`Failed to delete attribute: ${res.status}`);
+  }
 }

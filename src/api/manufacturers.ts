@@ -1,4 +1,4 @@
-import { getAuthHeaders } from "./authHeaders";
+import { getAuthHeaders, handleAuthError } from "./authHeaders";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api";
 
@@ -45,6 +45,7 @@ export async function fetchManufacturers(
   try {
     const res = await fetch(url, { headers: getAuthHeaders() });
     if (!res.ok) {
+      handleAuthError(res);
       const text = await res.text();
       throw new Error(`Failed to fetch manufacturers: ${res.status} ${res.statusText} - ${text}`);
     }
@@ -57,7 +58,10 @@ export async function fetchManufacturers(
 
 export async function fetchManufacturer(id: number): Promise<Manufacturer> {
   const res = await fetch(`${API_BASE_URL}/manufacturers/${id}/`, { headers: getAuthHeaders() });
-  if (!res.ok) throw new Error(`Failed to fetch manufacturer: ${res.status}`);
+  if (!res.ok) {
+    handleAuthError(res);
+    throw new Error(`Failed to fetch manufacturer: ${res.status}`);
+  }
   return (await res.json()) as Manufacturer;
 }
 
@@ -67,7 +71,10 @@ export async function createManufacturer(data: FormData): Promise<Manufacturer> 
     headers: getAuthHeaders(false),
     body: data,
   });
-  if (!res.ok) throw new Error(JSON.stringify(await res.json()));
+  if (!res.ok) {
+    handleAuthError(res);
+    throw new Error(JSON.stringify(await res.json()));
+  }
   return (await res.json()) as Manufacturer;
 }
 
@@ -77,7 +84,10 @@ export async function updateManufacturer(id: number, data: FormData): Promise<Ma
     headers: getAuthHeaders(false),
     body: data,
   });
-  if (!res.ok) throw new Error(JSON.stringify(await res.json()));
+  if (!res.ok) {
+    handleAuthError(res);
+    throw new Error(JSON.stringify(await res.json()));
+  }
   return (await res.json()) as Manufacturer;
 }
 
@@ -86,5 +96,8 @@ export async function deleteManufacturer(id: number): Promise<void> {
     method: "DELETE",
     headers: getAuthHeaders(),
   });
-  if (!res.ok) throw new Error(`Failed to delete manufacturer: ${res.status}`);
+  if (!res.ok) {
+    handleAuthError(res);
+    throw new Error(`Failed to delete manufacturer: ${res.status}`);
+  }
 }

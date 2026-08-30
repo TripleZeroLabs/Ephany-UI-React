@@ -1,4 +1,4 @@
-import { getAuthHeaders } from "./authHeaders";
+import { getAuthHeaders, handleAuthError } from "./authHeaders";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api";
 
@@ -36,13 +36,19 @@ export async function fetchVendors(opts: { page?: number; pageSize?: number; sea
   params.set("page_size", String(opts.pageSize ?? 20));
   if (opts.search) params.set("search", opts.search);
   const res = await fetch(`${API_BASE_URL}/vendors/?${params}`, { headers: getAuthHeaders() });
-  if (!res.ok) throw new Error(`Failed to fetch vendors: ${res.status}`);
+  if (!res.ok) {
+    handleAuthError(res);
+    throw new Error(`Failed to fetch vendors: ${res.status}`);
+  }
   return (await res.json()) as PaginatedResponse<Vendor>;
 }
 
 export async function fetchVendor(id: number): Promise<Vendor> {
   const res = await fetch(`${API_BASE_URL}/vendors/${id}/`, { headers: getAuthHeaders() });
-  if (!res.ok) throw new Error(`Failed to fetch vendor: ${res.status}`);
+  if (!res.ok) {
+    handleAuthError(res);
+    throw new Error(`Failed to fetch vendor: ${res.status}`);
+  }
   return (await res.json()) as Vendor;
 }
 
@@ -52,7 +58,10 @@ export async function createVendor(data: Omit<Vendor, 'id'>): Promise<Vendor> {
     headers: getAuthHeaders(),
     body: JSON.stringify(data),
   });
-  if (!res.ok) throw new Error(JSON.stringify(await res.json()));
+  if (!res.ok) {
+    handleAuthError(res);
+    throw new Error(JSON.stringify(await res.json()));
+  }
   return (await res.json()) as Vendor;
 }
 
@@ -62,7 +71,10 @@ export async function updateVendor(id: number, data: Partial<Omit<Vendor, 'id'>>
     headers: getAuthHeaders(),
     body: JSON.stringify(data),
   });
-  if (!res.ok) throw new Error(JSON.stringify(await res.json()));
+  if (!res.ok) {
+    handleAuthError(res);
+    throw new Error(JSON.stringify(await res.json()));
+  }
   return (await res.json()) as Vendor;
 }
 
@@ -71,7 +83,10 @@ export async function deleteVendor(id: number): Promise<void> {
     method: "DELETE",
     headers: getAuthHeaders(),
   });
-  if (!res.ok) throw new Error(`Failed to delete vendor: ${res.status}`);
+  if (!res.ok) {
+    handleAuthError(res);
+    throw new Error(`Failed to delete vendor: ${res.status}`);
+  }
 }
 
 // --- VendorProduct CRUD ---
@@ -83,7 +98,10 @@ export async function fetchVendorProducts(opts: { page?: number; pageSize?: numb
   if (opts.vendor) params.set("vendor", String(opts.vendor));
   if (opts.asset) params.set("asset", String(opts.asset));
   const res = await fetch(`${API_BASE_URL}/vendor-products/?${params}`, { headers: getAuthHeaders() });
-  if (!res.ok) throw new Error(`Failed to fetch vendor products: ${res.status}`);
+  if (!res.ok) {
+    handleAuthError(res);
+    throw new Error(`Failed to fetch vendor products: ${res.status}`);
+  }
   return (await res.json()) as PaginatedResponse<VendorProduct>;
 }
 
@@ -93,7 +111,10 @@ export async function createVendorProduct(data: { asset_id: number; vendor_id: n
     headers: getAuthHeaders(),
     body: JSON.stringify(data),
   });
-  if (!res.ok) throw new Error(JSON.stringify(await res.json()));
+  if (!res.ok) {
+    handleAuthError(res);
+    throw new Error(JSON.stringify(await res.json()));
+  }
   return (await res.json()) as VendorProduct;
 }
 
@@ -103,7 +124,10 @@ export async function updateVendorProduct(id: number, data: Partial<{ sku: strin
     headers: getAuthHeaders(),
     body: JSON.stringify(data),
   });
-  if (!res.ok) throw new Error(JSON.stringify(await res.json()));
+  if (!res.ok) {
+    handleAuthError(res);
+    throw new Error(JSON.stringify(await res.json()));
+  }
   return (await res.json()) as VendorProduct;
 }
 
@@ -112,5 +136,8 @@ export async function deleteVendorProduct(id: number): Promise<void> {
     method: "DELETE",
     headers: getAuthHeaders(),
   });
-  if (!res.ok) throw new Error(`Failed to delete vendor product: ${res.status}`);
+  if (!res.ok) {
+    handleAuthError(res);
+    throw new Error(`Failed to delete vendor product: ${res.status}`);
+  }
 }
